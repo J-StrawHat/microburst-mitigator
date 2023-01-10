@@ -20,10 +20,10 @@ control MyIngress(inout headers hdr,
     }
 
     action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
-        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr; //到达新目标，更新源MAC地址
-        hdr.ethernet.dstAddr = dstAddr; //查表可得到下一跳的目标Mac地址
-        standard_metadata.egress_spec = port; //查表得到输出端口
-        hdr.ipv4.ttl = hdr.ipv4.ttl - 1; //更新TTL
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;    //到达新目标，更新源MAC地址
+        hdr.ethernet.dstAddr = dstAddr;                 //查表可得到下一跳的目标Mac地址
+        standard_metadata.egress_spec = port;           //查表得到输出端口
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;                //更新TTL
     }
 
     table ipv4_lpm {
