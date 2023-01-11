@@ -12,3 +12,9 @@ sudo p4run --config p4app-fattree.json
 
 [Congestion Aware Load Balancing](https://github.com/nsg-ethz/p4-learning/tree/master/exercises/10-Congestion_Aware_Load_Balancing)
 
+ BMv2 Mininet CLI:
+ ```bash
+xterm h1 h2 h3 h4 h3
+ ```
+
+ 
