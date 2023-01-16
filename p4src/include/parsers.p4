@@ -18,6 +18,26 @@ parser MyParser(packet_in packet,
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
+        transition select(hdr.ipv4.ihl){
+            5 : dispatch_on_protocol;
+            default: parse_ipv4_options;
+        }
+    }
+
+    state parse_ipv4_options {
+        packet.extract(hdr.ipv4_option);
+        transition select(hdr.ipv4_option.option){
+            31 : parse_flowinfo;
+            default: dispatch_on_protocol;
+        }
+    }
+
+    state parse_flowinfo {
+        packet.extract(hdr.flowinfo);
+        transition dispatch_on_protocol;
+    }
+
+    state dispatch_on_protocol {
         transition select(hdr.ipv4.protocol){
             6 : parse_tcp;
             default: accept;
@@ -34,10 +54,11 @@ parser MyParser(packet_in packet,
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         //parsed headers have to be added again into the packet.
+        //Only emited if valid
         packet.emit(hdr.ethernet);
         packet.emit(hdr.ipv4);
-
-        //Only emited if valid
+        packet.emit(hdr.ipv4_option);
+	    packet.emit(hdr.flowinfo);
         packet.emit(hdr.tcp);
     }
 }

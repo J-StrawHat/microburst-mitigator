@@ -1,9 +1,4 @@
 /** Headers **/
-const bit<16> TYPE_IPV4 = 0x800;
-
-const bit<4>  TYPE_EGRESS_HOST = 1;
-const bit<4>  TYPE_EGRESS_SWITCH = 2;
-
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
 typedef bit<32> ip4Addr_t;
@@ -38,7 +33,7 @@ header ipv4_option_t {
     bit<8> optionLength;
 }
 
-header telemetry_t{
+header flowinfo_t{
     bit<32> ipv4_srcAddr;
     bit<32> ipv4_dstAddr;
     bit<16> tcp_sport;
@@ -48,7 +43,7 @@ header telemetry_t{
     bit<48> egress_ts; 
     bit<19> enq_qdepth;
     bit<19> deq_qdepth; 
-    bit<2> padding; // 238 bits of telemetry data + 2 bits of padding + 16 bits of IPOption header = 256 bits (multiple of 32)
+    bit<2>  padding; // 238 bits of telemetry data + 2 bits of padding + 16 bits of IPOption header = 256 bits (multiple of 32)
 } 
 
 header tcp_t{
@@ -77,8 +72,10 @@ struct metadata {
 }
 
 struct headers {
-    ethernet_t   ethernet;
-    ipv4_t       ipv4;
-    tcp_t        tcp;
+    ethernet_t     ethernet;
+    ipv4_t         ipv4;
+    ipv4_option_t  ipv4_option;
+    flowinfo_t     flowinfo; 
+    tcp_t          tcp;
 }
 

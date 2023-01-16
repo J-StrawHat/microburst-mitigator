@@ -5,6 +5,8 @@
 //My includes
 #include "include/headers.p4"
 #include "include/parsers.p4"
+#include "include/constants.p4"
+
 
 /** Checksum的验证阶段 **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -49,12 +51,16 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    apply {
+    table generate_clone {
 
+    }
+    
+    apply {
+        
     }
 }
 
-/** Checksum计算 **/
+/** Checksum计算（调用时期：egress后、deparser前） **/
 control MyComputeChecksum(inout headers hdr, inout metadata meta) {
      apply {
         update_checksum(
