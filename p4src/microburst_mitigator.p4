@@ -5,10 +5,9 @@
 //My includes
 #include "include/headers.p4"
 #include "include/parsers.p4"
-#include "include/constants.p4"
 
 
-/** Checksum的验证阶段 **/
+/** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
     apply {  }
 }
@@ -50,11 +49,7 @@ control MyIngress(inout headers hdr,
 /** Egress处理 **/
 control MyEgress(inout headers hdr,
                  inout metadata meta,
-                 inout standard_metadata_t standard_metadata) {
-    table generate_clone {
-
-    }
-    
+                 inout standard_metadata_t standard_metadata) {    
     apply {
         
     }
@@ -64,8 +59,9 @@ control MyEgress(inout headers hdr,
 control MyComputeChecksum(inout headers hdr, inout metadata meta) {
      apply {
         update_checksum(
-            hdr.ipv4.isValid(),
-                { hdr.ipv4.version,
+            hdr.ipv4.isValid(), //前提条件是 header 格式正确
+            { 
+                hdr.ipv4.version,
                 hdr.ipv4.ihl,
                 hdr.ipv4.dscp,
                 hdr.ipv4.ecn,
@@ -76,9 +72,10 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
                 hdr.ipv4.ttl,
                 hdr.ipv4.protocol,
                 hdr.ipv4.srcAddr,
-                hdr.ipv4.dstAddr },
-                hdr.ipv4.hdrChecksum,
-                HashAlgorithm.csum16);
+                hdr.ipv4.dstAddr 
+            },
+            hdr.ipv4.hdrChecksum,
+            HashAlgorithm.csum16);
     }
 }
 

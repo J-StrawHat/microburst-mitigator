@@ -33,7 +33,7 @@ def main():
     pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr, options=[FLOWINFO()]) / TCP(dport=60000, sport=60001) / payload 
 
     print("sending pacekets (%s:%s -> %s:%s)" % (pkt.getlayer(IP).src, pkt.getlayer(TCP).sport, pkt.getlayer(IP).dst, pkt.getlayer(TCP).dport))
-    pkt.show()
+    pkt.show2()
     print()
     sendpfast(pkt, pps=int(sys.argv[2]), loop=int(sys.argv[3]))
 

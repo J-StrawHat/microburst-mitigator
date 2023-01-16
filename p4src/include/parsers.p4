@@ -1,3 +1,4 @@
+#include "constants.p4"
 /** Parser阶段 **/
 parser MyParser(packet_in packet,
                 out headers hdr,
@@ -27,7 +28,7 @@ parser MyParser(packet_in packet,
     state parse_ipv4_options {
         packet.extract(hdr.ipv4_option);
         transition select(hdr.ipv4_option.option){
-            31 : parse_flowinfo;
+            TYPE_FLOWINFO : parse_flowinfo;
             default: dispatch_on_protocol;
         }
     }
