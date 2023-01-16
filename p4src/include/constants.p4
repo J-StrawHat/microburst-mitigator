@@ -13,3 +13,4 @@ const bit<4>  TYPE_EGRESS_SWITCH = 2;
 #define PKT_INSTANCE_TYPE_RESUBMIT 6
 
 #define THRESHOLD 25
+#define PORT_NUM 8

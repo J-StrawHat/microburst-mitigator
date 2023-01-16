@@ -43,7 +43,7 @@ header flowinfo_t{
     bit<48> egress_ts; 
     bit<19> enq_qdepth;
     bit<19> deq_qdepth; 
-    bit<2>  padding; // 238 bits of telemetry data + 2 bits of padding + 16 bits of IPOption header = 256 bits (multiple of 32)
+    bit<2>  padding;     // 238 bits of telemetry data + 2 bits of padding + 16 bits of IPOption header = 256 bits (multiple of 32)
 } 
 
 header tcp_t{

@@ -16,6 +16,9 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
+    
+    register<bit<9>>(PORT_NUM) qdepth_table;
+    
     action drop() {
         mark_to_drop(standard_metadata);
     }
@@ -42,6 +45,9 @@ control MyIngress(inout headers hdr,
     apply {
         if (hdr.ipv4.isValid()){
             ipv4_lpm.apply();
+            if (hdr.flowinfo.isValid()){
+                qdepth_table.write((bit<32>)standard_metadata.ingress_port, (bit<9>)hdr.flowinfo.deq_qdepth);
+            }
         }
     }
 }
@@ -51,7 +57,16 @@ control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {    
     apply {
-        
+        if (hdr.flowinfo.isValid()){
+            hdr.flowinfo.ingress_ts = standard_metadata.ingress_global_timestamp;
+            hdr.flowinfo.egress_ts = standard_metadata.egress_global_timestamp;
+            //hdr.flowinfo.enq_qdepth = standard_metadata.enq_qdepth;
+            hdr.flowinfo.enq_qdepth = hdr.flowinfo.enq_qdepth + 1;
+            hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;
+            if (hdr.flowinfo.deq_qdepth > THRESHOLD){
+                hdr.flowinfo.padding = (bit<2>)hdr.flowinfo.enq_qdepth;
+            }
+        }
     }
 }
 
