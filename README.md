@@ -23,7 +23,7 @@ xterm h1 h3 h5
 H1 & H5：
 
 ```bash
-cd host; python send.py 10.3.5.2 6700 30000
+cd host; python send.py 10.2.3.2 6700 30000
 ```
 
 H3:
