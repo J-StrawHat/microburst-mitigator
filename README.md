@@ -1,5 +1,9 @@
 # microburst-mitigator
 
+## 拓扑结构
+
+![](./fattree.png)
+
 ## 常用命令
 
 ```bash
@@ -13,7 +17,19 @@ sudo p4run --config p4app-fattree.json
 BMv2 Mininet CLI:
 
 ```bash
-xterm h1 h2 h3 h4 h3
+xterm h1 h3 h5
+```
+
+H1 & H5：
+
+```bash
+cd host; python send.py 10.3.5.2 6700 30000
+```
+
+H3:
+
+```bash
+cd host; python receive.py
 ```
 
 ## 参考
