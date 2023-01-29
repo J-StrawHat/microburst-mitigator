@@ -19,24 +19,33 @@ BMv2 Mininet CLI:
 ```bash
 xterm h1 h3 h5
 ```
-
-H1 & H5：
-
-```bash
-cd host; python send.py 10.2.3.2 6700 30000
-```
-
-参数说明：
-
-+ 参数 1 - `<destination>`：接收方 IPv4 地址
-+ 参数 2 - `<pps>`：每秒发送多少个分组数据包（常用的网络吞吐率的单位）
-+ 参数 3 - `<loop>`：循环次数
-
 H3:
 
 ```bash
 cd host; python receive.py
 ```
+
+H5：（Burst）
+
+```bash
+cd host; python send.py 10.2.3.2 10000 500
+```
+
+参数说明：
+
++ 参数 1 - `<destination>`：接收方 IPv4 地址
++ 参数 2 - `<pps>`：每秒发送多少个分组数据包（常用的网络吞吐率的单位），即发包速度
++ 参数 3 - `<loop>`：循环次数，即发包数量
+
+H1：（Background）
+
+```bash
+iperf -c 10.2.3.2 -i 1 -t 30 -b 4M
+```
+
+
+
+
 
 ## 参考
 

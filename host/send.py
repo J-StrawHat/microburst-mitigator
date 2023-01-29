@@ -29,7 +29,7 @@ def main():
     addr = socket.gethostbyname(sys.argv[1])
     iface = get_if()
 
-    payload = "7"*1446	
+    payload = "7"*1224	
     # pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr, options=[FLOWINFO()]) / TCP(dport=60000, sport=60001) / payload 
     pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr) / TCP(dport=60000, sport=60001) / payload 
 
