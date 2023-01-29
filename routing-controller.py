@@ -27,6 +27,23 @@ class RoutingController(object):
             controller.table_set_default("ipv4_lpm", "drop", [])
             #controller.table_set_default("ecmp_group_to_nhop", "drop", [])
 
+    def set_egress_type_table(self):
+        # 利用拓扑信息，学习每一个交换机的邻节点是交换机/主机
+        for sw_name, controller in self.controllers.items():
+
+            for intf, node in self.topo.get_interfaces_to_node(sw_name).items():
+                # 遍历本交换机中的每一个接口intf（对应邻节点node）
+                port_number = self.topo.interface_to_port(sw_name, intf) # 获取本交换机指定接口的端口号
+
+                if self.topo.isHost(node):          # 如果邻节点是主机
+                    node_type_num = 1
+                elif self.topo.isP4Switch(node):    # 如果邻节点是P4交换机
+                    node_type_num = 2
+
+                print("table_add at {}:".format(sw_name))
+                self.controllers[sw_name].table_add("egress_type", "set_egress_type", [str(port_number)], [str(node_type_num)])
+
+
     def route(self):
         for sw_name, controller in self.controllers.items():    # 遍历每一个交换机（边的起点）
             for sw_dst in self.topo.get_p4switches():           # 遍历另一个交换机（边的目的/终点）
@@ -61,6 +78,7 @@ class RoutingController(object):
 
                             
     def main(self):
+        self.set_egress_type_table()
         self.route()
 
 

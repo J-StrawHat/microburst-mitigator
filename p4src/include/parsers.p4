@@ -20,7 +20,7 @@ parser MyParser(packet_in packet,
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
         transition select(hdr.ipv4.ihl){
-            5 : dispatch_on_protocol;
+            5 : dispatch_on_protocol; //说明由5个双字（四字节）组成，即IPv4最小首部
             default: parse_ipv4_options;
         }
     }

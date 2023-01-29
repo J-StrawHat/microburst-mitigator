@@ -30,7 +30,8 @@ def main():
     iface = get_if()
 
     payload = "7"*1446	
-    pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr, options=[FLOWINFO()]) / TCP(dport=60000, sport=60001) / payload 
+    # pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr, options=[FLOWINFO()]) / TCP(dport=60000, sport=60001) / payload 
+    pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr) / TCP(dport=60000, sport=60001) / payload 
 
     print("sending pacekets (%s:%s -> %s:%s)" % (pkt.getlayer(IP).src, pkt.getlayer(TCP).sport, pkt.getlayer(IP).dst, pkt.getlayer(TCP).dport))
     pkt.show2()
