@@ -13,7 +13,7 @@
     "assignment_strategy": "l3",
     "default":
     {
-      "bw": 10
+      "bw": 100
     },
     "links": [
       ["h1", "s1"], ["h2", "s1"], ["h3", "s3"], ["h4", "s3"], ["s1", "s2"], ["s2", "s3"]],

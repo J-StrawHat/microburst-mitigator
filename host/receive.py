@@ -22,14 +22,15 @@ def handle_pkt(pkt):
     global pkt_cnt
     pkt_cnt = pkt_cnt + 1
     ip = pkt.getlayer(IP)
-    flow_info = ip.options[0]
+    # flow_info = ip.options[0]
 
     tcp = pkt.getlayer(TCP)
     # msg = tcp.payload.load.decode('UTF-8') 【TODO】iperf工具似乎不带load
-    if flow_info.padding != 0:
-        print("%sth Packet Received: (%s:%s -> %s:%s)" % (pkt_cnt, ip.src, tcp.sport, ip.dst, tcp.dport))
-        flow_info.show()
-        sys.stdout.flush()
+    # if flow_info.padding != 0:
+    print("%sth Packet Received: (%s:%s -> %s:%s)" % (pkt_cnt, ip.src, tcp.sport, ip.dst, tcp.dport))
+    # flow_info.show()
+    ip.show()
+    sys.stdout.flush()
     print()
 
 def main():

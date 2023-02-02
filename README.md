@@ -19,10 +19,16 @@ BMv2 Mininet CLI:
 ```bash
 xterm h1 h3 h5
 ```
-H3:
+第一个 H3:（Receiver）
 
 ```bash
 cd host; python receive.py
+```
+
+第二个 H3：（Receiver）
+
+```bash
+iperf -s
 ```
 
 H5：（Burst）

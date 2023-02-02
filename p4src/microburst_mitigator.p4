@@ -68,6 +68,7 @@ control MyIngress(inout headers hdr,
                 qdepth_table.write((bit<32>)standard_metadata.ingress_port, (bit<9>)hdr.flowinfo.deq_qdepth);
             }
             else {
+                
                 //如果下一跳是交换机并且是「刚刚从主机出发」，则将Flowinfo首部嵌入到数据包中
                 if (meta.egress_type == TYPE_EGRESS_SWITCH) {
                     //更新ipv4固定首部
@@ -90,6 +91,7 @@ control MyIngress(inout headers hdr,
                     hdr.flowinfo.tcp_dport = hdr.tcp.dstPort;
                     hdr.flowinfo.protocol = hdr.ipv4.protocol;
                 }
+                
             }
             
         }
@@ -109,6 +111,12 @@ control MyEgress(inout headers hdr,
             hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;     //更新出队列深度
             if (hdr.flowinfo.deq_qdepth > THRESHOLD){
                 hdr.flowinfo.padding = (bit<2>)hdr.flowinfo.enq_qdepth; //【TODO】记录发生Microburst的交换机
+            }
+            if (meta.egress_type == TYPE_EGRESS_HOST){          //如果下一跳是主机，说明将要结束
+                hdr.ipv4.ihl = hdr.ipv4.ihl - 8;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
+                hdr.ipv4.totalLen = hdr.ipv4.totalLen - 32;     //256 bits = 32 bytes
+                hdr.ipv4_option.setInvalid();
+                hdr.flowinfo.setInvalid();
             }
         }
     }
