@@ -1,6 +1,8 @@
 from p4utils.utils.helper import load_topo
 from p4utils.utils.sswitch_thrift_API import SimpleSwitchThriftAPI
 
+PORT_NUM = 8
+
 class RoutingController(object):
 
     def __init__(self):                                 # 0.创建RoutingController实例
@@ -12,6 +14,7 @@ class RoutingController(object):
         self.connect_to_switches()
         self.reset_states()
         self.set_table_defaults()
+        self.set_register_defaults()
 
     def reset_states(self):
         [controller.reset_state() for controller in self.controllers.values()]
@@ -19,13 +22,20 @@ class RoutingController(object):
     def connect_to_switches(self):                      # 2.连接至thrift服务器
         for p4switch in self.topo.get_p4switches():     # 该函数返回值示例：{'s1':{'isHost': False, 'isSwitch': True, ...}, ...}
             thrift_port = self.topo.get_thrift_port(p4switch)
-            self.controllers[p4switch] = SimpleSwitchThriftAPI(thrift_port)
+            # self.controllers[p4switch] = SimpleSwitchThriftAPI(thrift_port)
+            cur_api = SimpleSwitchThriftAPI(thrift_port)
+            cur_api.mirroring_add(100, PORT_NUM)
+            self.controllers[p4switch] = cur_api
             # 建立键值对映射：{'sw_name' : SimpleSwitchThriftAPI()}
 
     def set_table_defaults(self):
         for controller in self.controllers.values():    #遍历所有的API操作对象，设置其默认的Action
             controller.table_set_default("ipv4_lpm", "drop", [])
             #controller.table_set_default("ecmp_group_to_nhop", "drop", [])
+
+    def set_register_defaults(self):
+        for controller in self.controllers.values():
+            controller.register_write("qdepth_table", [0, PORT_NUM], 0)
 
     def set_egress_type_table(self):
         # 利用拓扑信息，学习每一个交换机的邻节点是交换机/主机

@@ -28,7 +28,7 @@ cd host; python receive.py
 第二个 H3：（Receiver）
 
 ```bash
-iperf -s
+iperf -s -i 1
 ```
 
 H5：（Burst）
@@ -46,7 +46,7 @@ cd host; python send.py 10.2.3.2 10000 500
 H1：（Background）
 
 ```bash
-iperf -c 10.2.3.2 -i 1 -t 30 -b 4M
+iperf -c 10.2.3.2 -t 30 -b 100M -i 1
 ```
 
 

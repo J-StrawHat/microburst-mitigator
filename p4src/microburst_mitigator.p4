@@ -72,24 +72,19 @@ control MyIngress(inout headers hdr,
                 //如果下一跳是交换机并且是「刚刚从主机出发」，则将Flowinfo首部嵌入到数据包中
                 if (meta.egress_type == TYPE_EGRESS_SWITCH) {
                     //更新ipv4固定首部
-                    hdr.ipv4.ihl = hdr.ipv4.ihl + 8;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
-                    hdr.ipv4.totalLen = hdr.ipv4.totalLen + 32;     //256 bits = 32 bytes
+                    hdr.ipv4.ihl = hdr.ipv4.ihl + 5;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
+                    hdr.ipv4.totalLen = hdr.ipv4.totalLen + 20;     //256 bits = 32 bytes
                     //插入ipv4的可选字段（基础部分）
                     hdr.ipv4_option.setValid();
-                    hdr.ipv4_option.optionLength = 32;              //256 bits = 32 bytes
+                    hdr.ipv4_option.optionLength = 20;              //256 bits = 32 bytes
                     hdr.ipv4_option.option = TYPE_FLOWINFO;
                     //将flowinfo插入ipv4的可选字段
                     hdr.flowinfo.setValid();
-                    hdr.flowinfo.padding = 0;
-                    hdr.flowinfo.ingress_ts = 0;
+
                     hdr.flowinfo.egress_ts = 0;
-                    hdr.flowinfo.enq_qdepth = 0;
                     hdr.flowinfo.deq_qdepth = 0;
-                    hdr.flowinfo.ipv4_srcAddr = hdr.ipv4.srcAddr;
-                    hdr.flowinfo.ipv4_dstAddr = hdr.ipv4.dstAddr;
-                    hdr.flowinfo.tcp_sport = hdr.tcp.srcPort;
-                    hdr.flowinfo.tcp_dport = hdr.tcp.dstPort;
-                    hdr.flowinfo.protocol = hdr.ipv4.protocol;
+                    hdr.flowinfo.deflect_idx = 0;
+                    hdr.flowinfo.padding = 0;
                 }
                 
             }
@@ -104,17 +99,15 @@ control MyEgress(inout headers hdr,
                  inout standard_metadata_t standard_metadata) {    
     apply {
         if (hdr.flowinfo.isValid()){
-            hdr.flowinfo.ingress_ts = standard_metadata.ingress_global_timestamp;
             hdr.flowinfo.egress_ts = standard_metadata.egress_global_timestamp;
-            //hdr.flowinfo.enq_qdepth = standard_metadata.enq_qdepth;
-            hdr.flowinfo.enq_qdepth = hdr.flowinfo.enq_qdepth + 1;      //【TODO】迭代交换机序号
+            hdr.flowinfo.deflect_idx = hdr.flowinfo.deflect_idx + 1;      //【TODO】迭代交换机序号
             hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;     //更新出队列深度
             if (hdr.flowinfo.deq_qdepth > THRESHOLD){
-                hdr.flowinfo.padding = (bit<2>)hdr.flowinfo.enq_qdepth; //【TODO】记录发生Microburst的交换机
+                hdr.flowinfo.padding = (bit<33>)hdr.flowinfo.deflect_idx; //【TODO】记录发生Microburst的交换机
             }
             if (meta.egress_type == TYPE_EGRESS_HOST){          //如果下一跳是主机，说明将要结束
-                hdr.ipv4.ihl = hdr.ipv4.ihl - 8;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
-                hdr.ipv4.totalLen = hdr.ipv4.totalLen - 32;     //256 bits = 32 bytes
+                hdr.ipv4.ihl = hdr.ipv4.ihl - 5;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
+                hdr.ipv4.totalLen = hdr.ipv4.totalLen - 20;     //256 bits = 32 bytes
                 hdr.ipv4_option.setInvalid();
                 hdr.flowinfo.setInvalid();
             }

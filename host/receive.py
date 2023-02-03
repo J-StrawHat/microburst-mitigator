@@ -37,8 +37,10 @@ def main():
     ifaces = [i for i in os.listdir('/sys/class/net/') if 'eth' in i]
     iface = ifaces[0]
     print("sniffing on %s" % iface)
+    
+    tmp = IP(dst = '10.1.1.2')
     sys.stdout.flush()                      # 显式地让缓冲区的内容输出
-    sniff(filter="tcp", iface = iface,      # 指定要在哪个网络接口上进行抓包
+    sniff(filter="ip dst " + tmp.src, iface = iface,      # 指定要在哪个网络接口上进行抓包
           prn = lambda x: handle_pkt(x))    #每当一个符合filter的报文被探测到时，就会执行回调函数
 
 if __name__ == '__main__':

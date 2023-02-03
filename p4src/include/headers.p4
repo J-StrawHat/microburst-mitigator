@@ -34,16 +34,11 @@ header ipv4_option_t {
 }
 
 header flowinfo_t{
-    bit<32> ipv4_srcAddr;
-    bit<32> ipv4_dstAddr;
-    bit<16> tcp_sport;
-    bit<16> tcp_dport;
-    bit<8>  protocol;
-    bit<48> ingress_ts;
-    bit<48> egress_ts; 
-    bit<19> enq_qdepth;
-    bit<19> deq_qdepth; 
-    bit<2>  padding;     // 238 bits of telemetry data + 2 bits of padding + 16 bits of IPOption header = 256 bits (multiple of 32)
+    bit<12> flow_id;
+    bit<48> egress_ts;
+    bit<19> deq_qdepth;
+    bit<32> deflect_idx;
+    bit<33> padding; // 144 bits of telemetry data + 16 bits of IPOption header = 160 bits (multiple of 32)
 } 
 
 header tcp_t{
