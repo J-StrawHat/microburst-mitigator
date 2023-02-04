@@ -14,3 +14,4 @@ const bit<4>  TYPE_EGRESS_SWITCH = 2;
 
 #define THRESHOLD 25
 #define PORT_NUM 8
+#define FLOW_NUM 1024

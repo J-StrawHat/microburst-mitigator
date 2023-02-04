@@ -7,15 +7,10 @@ class FLOWINFO(IPOption):
     fields_desc = [ 
         _IPOption_HDR,
         ByteField("length", 2),
-        Emph(SourceIPField("src", "dst")),
-        Emph(DestIPField("dst", "127.0.0.1")),
-        ShortEnumField("tcp_sport", 20, TCP_SERVICES),
-        ShortEnumField("tcp_dport", 80, TCP_SERVICES),
-        ByteEnumField("protocol", 0, IP_PROTOS),
-        BitField("ingress_ts", 0, 48),
+        BitField("flow_id", 0, 12),
         BitField("egress_ts", 0, 48),
-        BitField("enq_qdepth", 0, 19),
         BitField("deq_qdepth", 0, 19),
-        BitField("padding", 0, 2) 
+        BitField("deflect_idx", 0, 32),
+        BitField("padding", 0, 33) 
     ]
 

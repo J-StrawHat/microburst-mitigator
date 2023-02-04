@@ -29,8 +29,9 @@ def main():
     addr = socket.gethostbyname(sys.argv[1])
     iface = get_if()
 
-    payload = "7"*1224	
+    payload = "7"*1236 # = 100 * 1024 * 1024 / 10000 / 8 - 74 bytes	
     # pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr, options=[FLOWINFO()]) / TCP(dport=60000, sport=60001) / payload 
+    # 包括Flowinfo的数据包首部为 74 bytes
     pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff') /IP(dst=addr) / TCP(dport=60000, sport=60001) / payload 
 
     print("sending pacekets (%s:%s -> %s:%s)" % (pkt.getlayer(IP).src, pkt.getlayer(TCP).sport, pkt.getlayer(IP).dst, pkt.getlayer(TCP).dport))

@@ -81,6 +81,18 @@ control MyIngress(inout headers hdr,
                     //将flowinfo插入ipv4的可选字段
                     hdr.flowinfo.setValid();
 
+                    hash(hdr.flowinfo.flow_id,
+                        HashAlgorithm.crc16,
+                        (bit<1>)0,
+                        {
+                            hdr.ipv4.dstAddr,
+                            hdr.ipv4.srcAddr,
+                            hdr.tcp.srcPort,
+                            hdr.tcp.dstPort,
+                            hdr.ipv4.protocol
+                        },
+                        (bit<12>)FLOW_NUM); //哈希得到flow-id
+
                     hdr.flowinfo.egress_ts = 0;
                     hdr.flowinfo.deq_qdepth = 0;
                     hdr.flowinfo.deflect_idx = 0;

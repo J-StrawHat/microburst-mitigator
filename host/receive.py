@@ -29,7 +29,7 @@ def handle_pkt(pkt):
     # if flow_info.padding != 0:
     print("%sth Packet Received: (%s:%s -> %s:%s)" % (pkt_cnt, ip.src, tcp.sport, ip.dst, tcp.dport))
     # flow_info.show()
-    ip.show()
+    # ip.show()
     sys.stdout.flush()
     print()
 

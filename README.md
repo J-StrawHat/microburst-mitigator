@@ -34,7 +34,7 @@ iperf -s -i 1
 H5：（Burst）
 
 ```bash
-cd host; python send.py 10.2.3.2 10000 500
+cd host; python send.py 10.2.3.2 10000 5000
 ```
 
 参数说明：
@@ -46,7 +46,7 @@ cd host; python send.py 10.2.3.2 10000 500
 H1：（Background）
 
 ```bash
-iperf -c 10.2.3.2 -t 30 -b 100M -i 1
+iperf -c 10.2.3.2 -t 30 -b 20M -i 1
 ```
 
 
