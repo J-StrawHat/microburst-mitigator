@@ -5,7 +5,7 @@
 //My includes
 #include "include/headers.p4"
 #include "include/parsers.p4"
-
+#define SHOW_FLOWINFO false
 
 /** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -63,6 +63,16 @@ control MyIngress(inout headers hdr,
         if (hdr.ipv4.isValid()){
             ipv4_lpm.apply();
             egress_type.apply();
+
+            if (hdr.tcp.isValid()){
+                meta.src_port = hdr.tcp.srcPort;
+                meta.dst_port = hdr.tcp.dstPort;
+            }
+            else if (hdr.udp.isValid()){
+                meta.src_port = hdr.udp.srcPort;
+                meta.dst_port = hdr.udp.dstPort;
+            }
+
             if (hdr.flowinfo.isValid()){
                 //
                 qdepth_table.write((bit<32>)standard_metadata.ingress_port, (bit<9>)hdr.flowinfo.deq_qdepth);
@@ -87,8 +97,8 @@ control MyIngress(inout headers hdr,
                         {
                             hdr.ipv4.dstAddr,
                             hdr.ipv4.srcAddr,
-                            hdr.tcp.srcPort,
-                            hdr.tcp.dstPort,
+                            meta.src_port,
+                            meta.dst_port,
                             hdr.ipv4.protocol
                         },
                         (bit<12>)FLOW_NUM); //哈希得到flow-id
@@ -117,7 +127,7 @@ control MyEgress(inout headers hdr,
             if (hdr.flowinfo.deq_qdepth > THRESHOLD){
                 hdr.flowinfo.padding = (bit<33>)hdr.flowinfo.deflect_idx; //【TODO】记录发生Microburst的交换机
             }
-            if (meta.egress_type == TYPE_EGRESS_HOST){          //如果下一跳是主机，说明将要结束
+            if (!SHOW_FLOWINFO && meta.egress_type == TYPE_EGRESS_HOST){          //如果下一跳是主机，说明将要结束
                 hdr.ipv4.ihl = hdr.ipv4.ihl - 5;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
                 hdr.ipv4.totalLen = hdr.ipv4.totalLen - 20;     //256 bits = 32 bytes
                 hdr.ipv4_option.setInvalid();

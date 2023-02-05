@@ -61,17 +61,27 @@ header tcp_t{
     bit<16> urgentPtr;
 }
 
+header udp_t{
+    bit<16> srcPort;
+    bit<16> dstPort;
+    bit<16> length;
+    bit<16> checksum;
+}
+
 struct metadata {
     bit<14> ecmp_hash;
     bit<14> ecmp_group_id;
     bit<4>  egress_type;
+    bit<16> src_port;
+    bit<16> dst_port;
 }
 
 struct headers {
-    ethernet_t     ethernet;
-    ipv4_t         ipv4;
-    ipv4_option_t  ipv4_option;
-    flowinfo_t     flowinfo; 
-    tcp_t          tcp;
+    ethernet_t      ethernet;
+    ipv4_t          ipv4;
+    ipv4_option_t   ipv4_option;
+    flowinfo_t      flowinfo; 
+    tcp_t           tcp;
+    udp_t           udp;
 }
 

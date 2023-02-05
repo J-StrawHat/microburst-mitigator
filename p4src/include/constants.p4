@@ -1,5 +1,8 @@
 const bit<16> TYPE_IPV4 = 0x800;
 const bit<5>  TYPE_FLOWINFO = 31;
+const bit<8>  TYPE_TCP  = 6;
+const bit<8>  TYPE_UDP  = 17;
+
 
 const bit<4>  TYPE_EGRESS_HOST = 1;
 const bit<4>  TYPE_EGRESS_SWITCH = 2;
