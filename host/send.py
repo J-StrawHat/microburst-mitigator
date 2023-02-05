@@ -6,7 +6,7 @@ import random
 import struct
 import time
 from flowinfo import *
-from scapy.all import sendp, sendpfast, get_if_list, get_if_hwaddr
+from scapy.all import sniff, sendp, sendpfast, get_if_list, get_if_hwaddr
 from scapy.all import Ether, IP, TCP
 
 def get_if():
@@ -37,7 +37,8 @@ def main():
     print("sending pacekets (%s:%s -> %s:%s)" % (pkt.getlayer(IP).src, pkt.getlayer(TCP).sport, pkt.getlayer(IP).dst, pkt.getlayer(TCP).dport))
     pkt.show2()
     print()
-    sendpfast(pkt, pps=int(sys.argv[2]), loop=int(sys.argv[3]))
+    # sendpfast(pkt, pps=int(sys.argv[2]), loop=int(sys.argv[3]))
+    sendpfast(pkt, mpbs=int(sys.argv[2]), loop=int(sys.argv[3]))
 
 
 if __name__ == '__main__':
