@@ -11,7 +11,7 @@ ssh -Y zwx@10.211.55.4
 ```
 
 ```bash
-sudo p4run --config p4app-fattree.json
+sudo p4run --config p4app-leafspine.json
 ```
 
 BMv2 Mininet CLI:

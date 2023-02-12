@@ -1,34 +1,43 @@
-import subprocess
+import numpy as np
 import matplotlib.pyplot as plt
-import datetime
 
-# run iperf server
-def run_iperf():
-    iperf_cmd = ['iperf', '-s', '-i', '1', '-t', '10']
-    bandwidths = []
-    iperf_process = subprocess.Popen(iperf_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    while True:
-        rt_data = iperf_process.stdout.readline().decode()
-        if rt_data != "":
-            print(rt_data, end="")
-            if "Mbits/sec" in rt_data:
-                bandwidth = float(rt_data.split(" ")[-2])
-                bandwidths.append(bandwidth)
-        else:
-            break
-    # return iperf_process.wait()
-    return bandwidths
+from pylab import mpl
+mpl.rcParams['font.sans-serif'] = ['Times New Roman'] # 指定默认字体
+mpl.rcParams['axes.unicode_minus'] = False # 解决保存图像是负号'-'显示为方块的问题
 
-def plot_iperf_results(data):
-    plt.plot(data)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Bandwidth (Mbits/sec)")
-    plt.title("Iperf Results")
-    # plt.show()
+samplenum1=np.arange(25,500+2,25)
+x25 = samplenum1
+samplenum2=np.arange(10,200+2,10)
+x10 = samplenum2
+samplenum3=np.arange(2,40+2,2)
+x2 = samplenum3
 
-    date_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    file_name = "./iperf_res_" + date_str + ".svg"
-    plt.savefig(file_name)
+accuracy10sigmoid_test=[0.863, 0.898, 0.964, 0.985, 0.975, 0.985, 0.989, 0.992, 0.992, 0.99, 0.989, 0.991, 0.988, 0.995, 0.994, 0.995, 1.0, 0.999, 0.996, 0.995]
+accuracy10tanh_test=[0.88, 0.968, 0.99, 0.985, 0.987, 0.988, 0.979, 0.986, 0.989, 0.988, 0.99, 0.987, 0.985, 0.993, 0.992, 0.993, 0.989, 0.99, 0.981, 0.991]
+accuracy10relu_test=[0.931, 0.9, 0.933, 0.947, 0.953, 0.967, 0.98, 0.985, 0.973, 0.981, 0.985, 0.985, 0.986, 0.979, 0.985, 0.984, 0.984, 0.982, 0.978, 0.976]
+#面向对象的绘图方式
+rect1 = [0.14, 0.35, 0.77, 0.6]
+fig,ax = plt.subplots()
+ax.figsize=(48,48)
+plt.rcParams['figure.figsize'] = (6.0, 4.0)
+plt.rcParams['image.interpolation'] = 'nearest' # 设置 interpolation style
+plt.rcParams['image.cmap'] = 'gray' # 设置 颜色 style
+plt.rcParams['savefig.dpi'] = 300 #图片像素
+plt.rcParams['figure.dpi'] = 300 #分辨率
 
-results = run_iperf()
-plot_iperf_results(results)
+ins0=ax.plot(x10,accuracy10tanh_test, label = 'tanh',marker='o')
+ins1=ax.plot(x10,accuracy10relu_test, label = 'relu',marker='s')
+ins2=ax.plot(x10,accuracy10sigmoid_test, label = 'sigmoid',marker='v')
+lns = ins0+ins1+ins2
+labs = [l.get_label() for l in lns]
+ax.legend(lns, labs, loc="lower right")#loc="lower right" 图例右下角
+ax.set_xlabel("Iteration")
+ax.set_ylabel("Accuracy")
+#ax.set_title("xxx0-10")
+ax.set_xticks(x10)
+ax.set_yticks([0.7,0.9,0.95,1.0])
+#ax.grid()
+plt.savefig('xxx0-10-0.png')
+
+
+
