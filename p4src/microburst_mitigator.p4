@@ -6,6 +6,7 @@
 #include "include/headers.p4"
 #include "include/parsers.p4"
 #define SHOW_FLOWINFO false
+#define DEFLECTION_MODE 0       //0:不偏转; 1:随机偏转; 2:有选择性偏转
 
 /** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -16,8 +17,14 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
-    
-    register<bit<9>>(PORT_NUM) qdepth_table;
+    //write(in bit<32> index, in T value);
+    //read(out T result, in bit<32> index);
+    register<bit<19>>(PORT_NUM) qdepth_table; //记录邻居交换机的深度情况
+    register<bit<19>>(2) min_qdepth_recorder;
+    bit<19> cur_deq_qdepth;
+    bit<19> min_deq_qdepth;
+    bit<9>  min_deq_dqdepth_idx;
+    bit<9>  tmp_port;
     
     action drop() {
         mark_to_drop(standard_metadata);
@@ -74,8 +81,29 @@ control MyIngress(inout headers hdr,
             }
 
             if (hdr.flowinfo.isValid()){
-                //
-                qdepth_table.write((bit<32>)standard_metadata.ingress_port, (bit<9>)hdr.flowinfo.deq_qdepth);
+                //将入端口的队列深度（告知其他邻近的交换机的队列深度）记录到「深度记录表」中
+                qdepth_table.write((bit<32>)standard_metadata.ingress_port, hdr.flowinfo.deq_qdepth);
+                //读出并维护最小深度
+                min_qdepth_recorder.read(min_deq_qdepth, 1);
+                if (min_deq_qdepth >= hdr.flowinfo.deq_qdepth) {
+                    min_qdepth_recorder.write(0, (bit<19>)standard_metadata.ingress_port);  //更新端口号
+                    min_qdepth_recorder.write(1, hdr.flowinfo.deq_qdepth);                  //更新深度
+                    min_deq_qdepth = hdr.flowinfo.deq_qdepth;                               //更新临时变量
+                }
+                //从「深度记录表」中读出当前出端口的队列深度，并存放到cur_deq_qdepth
+                qdepth_table.read(cur_deq_qdepth, (bit<32>)standard_metadata.egress_port);
+
+                if(cur_deq_qdepth > THRESHOLD){     //即将出的端口，比较拥塞
+                    if (DEFLECTION_MODE == 1){      //Random Deflection
+                        random(tmp_port, 9w0, PORT_NUM);
+                        standard_metadata.egress_spec = tmp_port;
+                    }
+                    else if(DEFLECTION_MODE == 2){  //Selective Deflection
+                        min_qdepth_recorder.read(min_deq_dqdepth_idx, 0);
+                        standard_metadata.egress_spec = min_deq_dqdepth_idx;
+                    }
+                }
+
             }
             else {
                 
@@ -108,7 +136,6 @@ control MyIngress(inout headers hdr,
                     hdr.flowinfo.deflect_idx = 0;
                     hdr.flowinfo.padding = 0;
                 }
-                
             }
             
         }
@@ -122,12 +149,10 @@ control MyEgress(inout headers hdr,
     apply {
         if (hdr.flowinfo.isValid()){
             hdr.flowinfo.egress_ts = standard_metadata.egress_global_timestamp;
-            hdr.flowinfo.deflect_idx = hdr.flowinfo.deflect_idx + 1;      //【TODO】迭代交换机序号
-            hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;     //更新出队列深度
-            if (hdr.flowinfo.deq_qdepth > THRESHOLD){
-                hdr.flowinfo.padding = (bit<33>)hdr.flowinfo.deflect_idx; //【TODO】记录发生Microburst的交换机
-            }
-            if (!SHOW_FLOWINFO && meta.egress_type == TYPE_EGRESS_HOST){          //如果下一跳是主机，说明将要结束
+            hdr.flowinfo.deflect_idx = hdr.flowinfo.deflect_idx + 1;        //【TODO】迭代交换机序号
+            hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;         //更新出队列深度
+
+            if (!SHOW_FLOWINFO && meta.egress_type == TYPE_EGRESS_HOST){    //如果下一跳是主机，说明将要结束
                 hdr.ipv4.ihl = hdr.ipv4.ihl - 5;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
                 hdr.ipv4.totalLen = hdr.ipv4.totalLen - 20;     //256 bits = 32 bytes
                 hdr.ipv4_option.setInvalid();

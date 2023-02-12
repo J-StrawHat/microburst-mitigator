@@ -2,6 +2,7 @@ from p4utils.utils.helper import load_topo
 from p4utils.utils.sswitch_thrift_API import SimpleSwitchThriftAPI
 
 PORT_NUM = 8
+MAX_VALUE = 2 ** 19 - 1
 
 class RoutingController(object):
 
@@ -36,6 +37,8 @@ class RoutingController(object):
     def set_register_defaults(self):
         for controller in self.controllers.values():
             controller.register_write("qdepth_table", [0, PORT_NUM], 0)
+        for controller in self.controllers.values():
+            controller.register_write("min_qdepth_recorder", [0, 2], MAX_VALUE)
 
     def set_egress_type_table(self):
         # 利用拓扑信息，学习每一个交换机的邻节点是交换机/主机
