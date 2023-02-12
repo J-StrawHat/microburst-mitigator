@@ -1,5 +1,6 @@
 /log
 /p4src/microburst_mitigator.json
 /p4src/microburst_mitigator.p4i
+/host/log
 /pcap
 /topology.json

@@ -11,7 +11,7 @@ flow_type = "burst"
 def run_iperf(fa_dir = 'log', idx = '1', ip_addr = '10.2.3.2', bandwidth = '25M', flowsize = '5M', is_udp = True):
     date_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     file_name = fa_dir + "/iperf_" + flow_type + "_" + idx + "_" + bandwidth + "_" + flowsize
-    iperf_cmd = ['iperf', '-c', ip_addr, '-b', bandwidth, '-n', flowsize]
+    iperf_cmd = ['iperf3', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5001']
     if is_udp:
         iperf_cmd.append('-u')
         file_name += "_u.txt"
@@ -26,28 +26,28 @@ def run_iperf(fa_dir = 'log', idx = '1', ip_addr = '10.2.3.2', bandwidth = '25M'
     with open(file_name, 'r') as f:
         for line in f:
             la = line.split(" ")
-            if is_udp and '%' in line: 
-                fct_a = la[3].split("-")
+            if is_udp and 'receiver' in line: 
+                fct_a = la[5].split("-")
                 res["FCT(sec)"] = float(fct_a[1])
 
-                res["Transfer(MBytes)"] = float(la[6])
+                res["Transfer(MBytes)"] = float(la[10])
 
-                res["Bandwidth(Mbits/sec)"] = float(la[9])
+                res["Bandwidth(Mbits/sec)"] = float(la[13])
 
-                res["Jitter(ms)"] = float(la[13])
+                res["Jitter(ms)"] = float(la[16])
 
-                lost_a = la[-2].split("/")
+                lost_a = la[19].split("/")
                 res["Lost"] = int(lost_a[0]) / int(lost_a[1])
 
                 break
 
-            elif not is_udp and 'sec' in line:
-                fct_a = la[3].split("-")
+            elif not is_udp and 'receiver' in line:
+                fct_a = la[5].split("-")
                 res["FCT(sec)"] = float(fct_a[1])
 
-                res["Transfer(MBytes)"] = float(la[6])
+                res["Transfer(MBytes)"] = float(la[10])
 
-                res["Bandwidth(Mbits/sec)"] = float(la[9])
+                res["Bandwidth(Mbits/sec)"] = float(la[13])
 
                 break
     print(res)
