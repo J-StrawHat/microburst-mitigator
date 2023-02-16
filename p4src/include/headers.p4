@@ -69,8 +69,6 @@ header udp_t{
 }
 
 struct metadata {
-    bit<14> ecmp_hash;
-    bit<14> ecmp_group_id;
     bit<4>  egress_type;
     bit<16> src_port;
     bit<16> dst_port;

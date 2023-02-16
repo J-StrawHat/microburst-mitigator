@@ -2,7 +2,7 @@
   "p4_src": "p4src/microburst_mitigator.p4",
   "cli": true,
   "pcap_dump": true,
-  "enable_log": true,
+  "enable_log": false,
   "exec_scripts": [
     {
       "cmd": "python routing-controller.py",

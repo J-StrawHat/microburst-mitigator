@@ -2,8 +2,8 @@ import subprocess
 import matplotlib.pyplot as plt
 import datetime, os, time
 
-aggregate_load = 35
-background_load = 25
+aggregate_load = 105
+background_load = 55
 is_udp_flow = True
 flow_interval = 4.5
 flow_type = "burst"
@@ -108,5 +108,5 @@ def iperf_loop(bg = 25, agg = 35, is_udp = True, period = 3): # 20æ¬¡microburstä
 
 
 if not os.path.exists("log/report"):
-    os.makedirs("log/report")
+    os.makedirs("log/report", mode=0o777)
 iperf_loop(bg=background_load, agg=aggregate_load, is_udp=is_udp_flow, period=flow_interval)

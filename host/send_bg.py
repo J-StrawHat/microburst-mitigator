@@ -2,16 +2,21 @@ import subprocess
 import matplotlib.pyplot as plt
 import datetime, os, time
 
-aggregate_load = 35
-background_load = 25
+aggregate_load = 105
+background_load = 55
 is_udp_flow = True
 flow_interval = 0
 flow_type = "bg"
+iperf_version = 2
 
-def run_iperf(fa_dir = 'log', idx = '1', ip_addr = '10.2.3.2', bandwidth = '25M', flowsize = '5M', is_udp = True):
+def run_iperf(fa_dir = 'log', idx = '1', ip_addr = '10.2.3.2', bandwidth = '25M', flowsize = '5M', is_udp = True, iperf_mode = 2):
     date_str = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     file_name = fa_dir + "/iperf_" + flow_type + "_" + idx + "_" + bandwidth + "_" + flowsize
-    iperf_cmd = ['iperf3', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5000']
+    iperf_cmd = []
+    if iperf_mode == 3:
+        iperf_cmd = ['iperf3', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5000']
+    elif iperf_mode == 2:
+        iperf_cmd = ['iperf', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5000', '-w', '10M']
     if is_udp:
         iperf_cmd.append('-u')
         file_name += "_u.txt"
@@ -26,35 +31,61 @@ def run_iperf(fa_dir = 'log', idx = '1', ip_addr = '10.2.3.2', bandwidth = '25M'
     with open(file_name, 'r') as f:
         for line in f:
             la = line.split(" ")
-            if is_udp and 'receiver' in line: 
-                fct_a = la[5].split("-")
-                res["FCT(sec)"] = float(fct_a[1])
+            if iperf_mode == 3:
+                if is_udp and 'receiver' in line: 
+                    fct_a = la[5].split("-")
+                    res["FCT(sec)"] = float(fct_a[1])
 
-                res["Transfer(MBytes)"] = float(la[10])
+                    res["Transfer(MBytes)"] = float(la[10])
 
-                res["Bandwidth(Mbits/sec)"] = float(la[13])
+                    res["Bandwidth(Mbits/sec)"] = float(la[13])
 
-                res["Jitter(ms)"] = float(la[16])
+                    res["Jitter(ms)"] = float(la[16])
 
-                lost_a = la[19].split("/")
-                res["Lost"] = int(lost_a[0]) / int(lost_a[1])
+                    lost_a = la[19].split("/")
+                    res["Lost"] = int(lost_a[0]) / int(lost_a[1])
 
-                break
+                    break
 
-            elif not is_udp and 'receiver' in line:
-                fct_a = la[5].split("-")
-                res["FCT(sec)"] = float(fct_a[1])
+                elif not is_udp and 'receiver' in line:
+                    fct_a = la[5].split("-")
+                    res["FCT(sec)"] = float(fct_a[1])
 
-                res["Transfer(MBytes)"] = float(la[10])
+                    res["Transfer(MBytes)"] = float(la[10])
 
-                res["Bandwidth(Mbits/sec)"] = float(la[13])
+                    res["Bandwidth(Mbits/sec)"] = float(la[13])
 
-                break
+                    break
+            elif iperf_mode == 2:
+                if is_udp and '%' in line: 
+                    fct_a = la[3].split("-")
+                    res["FCT(sec)"] = float(fct_a[1])
+
+                    res["Transfer(MBytes)"] = float(la[6])
+
+                    res["Bandwidth(Mbits/sec)"] = float(la[9])
+
+                    res["Jitter(ms)"] = float(la[13])
+
+                    lost_a = la[-2].split("/")
+                    res["Lost"] = int(lost_a[0]) / int(lost_a[1])
+
+                    break
+
+                elif not is_udp and 'sec' in line:
+                    fct_a = la[3].split("-")
+                    res["FCT(sec)"] = float(fct_a[1])
+
+                    res["Transfer(MBytes)"] = float(la[6])
+
+                    res["Bandwidth(Mbits/sec)"] = float(la[9])
+
+                    break
     print(res)
 
     return res
 
-def iperf_loop(bg = 25, agg = 35, is_udp = True, period = 3): # 20次microburst事件
+def iperf_loop(bg = 25, agg = 35, is_udp = True, period = 3, iperf_mode=2): # 20次microburst事件
     X, fcts, transfers, jitters, loss = [], [], [], [], []
     burst = agg - bg
     if burst <= 0:
@@ -73,7 +104,7 @@ def iperf_loop(bg = 25, agg = 35, is_udp = True, period = 3): # 20次microburst�
         bd, fz = bg, '20M'
 
     for i in range(0, 20):
-        mymap = run_iperf(fa_dir=fa_dir, idx=str(i), bandwidth=str(bd) + "M", flowsize=fz, is_udp=is_udp)
+        mymap = run_iperf(fa_dir=fa_dir, idx=str(i), bandwidth=str(bd) + "M", flowsize=fz, is_udp=is_udp, iperf_mode=iperf_version)
         fcts.append(mymap["FCT(sec)"])
         if is_udp:
             jitters.append(mymap["Jitter(ms)"])
@@ -108,5 +139,5 @@ def iperf_loop(bg = 25, agg = 35, is_udp = True, period = 3): # 20次microburst�
 
 
 if not os.path.exists("log/report"):
-    os.makedirs("log/report")
+    os.makedirs("log/report", mode=0o777)
 iperf_loop(bg=background_load, agg=aggregate_load, is_udp=is_udp_flow, period=flow_interval)
