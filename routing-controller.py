@@ -35,9 +35,10 @@ class RoutingController(object):
             #controller.table_set_default("ecmp_group_to_nhop", "drop", [])
 
     def set_register_defaults(self):
-        for controller in self.controllers.values():
+        for sw_name, controller in self.controllers.items():
+            port_nums = len(self.topo.get_interfaces_to_node(sw_name))
+            controller.register_write("port_num_recorder", [0, 1], port_nums)
             controller.register_write("qdepth_table", [0, PORT_NUM], 0)
-        for controller in self.controllers.values():
             controller.register_write("min_qdepth_recorder", [0, 2], MAX_VALUE)
 
     def set_egress_type_table(self):

@@ -70,6 +70,7 @@ header udp_t{
 
 struct metadata {
     bit<4>  egress_type;
+    bit<9>  port_nums;
     bit<16> src_port;
     bit<16> dst_port;
 }

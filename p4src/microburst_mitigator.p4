@@ -6,7 +6,7 @@
 #include "include/headers.p4"
 #include "include/parsers.p4"
 #define SHOW_FLOWINFO false
-#define DEFLECTION_MODE 0       //0:不偏转; 1:随机偏转; 2:有选择性偏转
+#define DEFLECTION_MODE 0       //0:不偏转; 1:随机偏转; 2:随机选2个
 
 /** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -19,12 +19,14 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
     //write(in bit<32> index, in T value);
     //read(out T result, in bit<32> index);
-    register<bit<19>>(PORT_NUM) qdepth_table; //记录邻居交换机的深度情况
-    register<bit<19>>(2) min_qdepth_recorder;
-    bit<19> cur_deq_qdepth;
-    bit<19> min_deq_qdepth;
-    bit<9>  min_deq_dqdepth_idx;
-    bit<9>  tmp_port;
+    register<bit<9>>(1)         port_num_recorder; //记录当前交换机有多少个端口
+    register<bit<9>>(1)         tmp_recorder; 
+    register<bit<19>>(PORT_NUM) qdepth_table; //记录邻居交换机的深度情况（注意，端口0是连接Thrift服务器的）
+    register<bit<19>>(2)        min_qdepth_recorder;
+    bit<19>                     cur_deq_qdepth;
+    bit<19>                     min_deq_qdepth;
+    bit<9>                      min_deq_dqdepth_idx;
+    bit<9>                      tmp_port;
     
     action drop() {
         mark_to_drop(standard_metadata);
@@ -92,10 +94,12 @@ control MyIngress(inout headers hdr,
                 }
                 //从「深度记录表」中读出当前出端口的队列深度，并存放到cur_deq_qdepth
                 qdepth_table.read(cur_deq_qdepth, (bit<32>)standard_metadata.egress_port);
-
+                //读出当前交换机的端口数量（边界）
+                port_num_recorder.read(meta.port_nums, 0);
                 if(cur_deq_qdepth > THRESHOLD){     //即将出的端口，比较拥塞
                     if (DEFLECTION_MODE == 1){      //Random Deflection
-                        random(tmp_port, 9w0, PORT_NUM);
+                        random(tmp_port, 9w0, meta.port_nums);
+                        tmp_recorder.write(0, tmp_port);
                         standard_metadata.egress_spec = tmp_port;
                     }
                     else if(DEFLECTION_MODE == 2){  //Selective Deflection
