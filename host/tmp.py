@@ -5,12 +5,10 @@ from pylab import mpl
 mpl.rcParams['font.sans-serif'] = ['Times New Roman'] # 指定默认字体
 mpl.rcParams['axes.unicode_minus'] = False # 解决保存图像是负号'-'显示为方块的问题
 
-samplenum1=np.arange(25,500+2,25)
-x25 = samplenum1
+
 samplenum2=np.arange(10,200+2,10)
 x10 = samplenum2
-samplenum3=np.arange(2,40+2,2)
-x2 = samplenum3
+
 
 accuracy10sigmoid_test=[0.863, 0.898, 0.964, 0.985, 0.975, 0.985, 0.989, 0.992, 0.992, 0.99, 0.989, 0.991, 0.988, 0.995, 0.994, 0.995, 1.0, 0.999, 0.996, 0.995]
 accuracy10tanh_test=[0.88, 0.968, 0.99, 0.985, 0.987, 0.988, 0.979, 0.986, 0.989, 0.988, 0.99, 0.987, 0.985, 0.993, 0.992, 0.993, 0.989, 0.99, 0.981, 0.991]
