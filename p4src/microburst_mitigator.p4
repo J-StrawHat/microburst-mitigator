@@ -6,7 +6,7 @@
 #include "include/headers.p4"
 #include "include/parsers.p4"
 #define SHOW_FLOWINFO false
-#define DEFLECTION_MODE 0       //0:不偏转; 1:随机偏转; 2:随机选2个取局部最小值; 3:遍历取全局最小值
+#define DEFLECTION_MODE 1       //0:不偏转; 1:随机偏转; 2:随机选2个取局部最小值; 3:遍历取全局最小值
 
 /** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -19,13 +19,20 @@ control MyIngress(inout headers hdr,
                   inout standard_metadata_t standard_metadata) {
     //write(in bit<32> index, in T value);
     //read(out T result, in bit<32> index);
-    register<bit<9>>(1)         port_num_recorder; //记录当前交换机有多少个端口
+    register<bit<9>>(1)         port_num_recorder;  //记录当前交换机有多少个端口
+    register<bit<32>>(FLOW_NUM) deflect_idx_table;  //记录不同流当前已分配的偏转ID  
+    register<bit<32>>(FLOW_NUM) reorder_idx_table;  //记录不同流「下一个」需恢复的偏转ID 
+    //register<bit<2>>(1)         status_recorder;    //记录当前交换机的偏转模式(0→1→2)
     //register<bit<9>>(1)         tmp_recorder; 
-    register<bit<19>>(PORT_NUM) qdepth_table; //记录邻居交换机的深度情况（注意，端口0是连接Thrift服务器的）
+    register<bit<19>>(PORT_NUM) qdepth_table;       //记录邻居交换机的深度情况（注意，端口0是连接Thrift服务器的）
     bit<19>                     cur_deq_qdepth;
     bit<19>                     min_deq_qdepth;
     bit<9>                      min_deq_dqdepth_idx;
     bit<9>                      tmp_port;
+    bit<2>                      cur_status;
+    bit<32>                     cur_deflect_idx;
+    bit<32>                     cur_reorder_idx;
+    bit<1>                      deflect_flag;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -88,7 +95,71 @@ control MyIngress(inout headers hdr,
                 qdepth_table.read(cur_deq_qdepth, (bit<32>)standard_metadata.egress_port);
                 //读出当前交换机的端口数量（边界）
                 port_num_recorder.read(meta.port_nums, 0);
-                if(cur_deq_qdepth > THRESHOLD){     //即将出的端口，比较拥塞
+                //读出当前交换机已分配、已恢复的偏转ID
+                deflect_idx_table.read(cur_deflect_idx, (bit<32>)hdr.flowinfo.flow_id);
+                reorder_idx_table.read(cur_reorder_idx, (bit<32>)hdr.flowinfo.flow_id);
+                //确定当前的转换状态
+                if(cur_deflect_idx == 0 && cur_reorder_idx == 0){
+                    cur_status = 0;
+                    if (cur_deq_qdepth > THRESHOLD){
+                        cur_status = 1;         //深度超出阈值，需要进行偏转
+                    }
+                    else {
+                        cur_status = 0;
+                    }
+                }
+                else if(cur_deflect_idx != 0 && cur_reorder_idx == 0){
+                    if (cur_deq_qdepth <= THRESHOLD){
+                        cur_status = 2;         //深度变浅了，准备停止偏转
+                        cur_reorder_idx = 1;    //初始化「待恢复」的偏转ID(0→1)
+                    }
+                    else {
+                        cur_status = 1;
+                    }
+                }
+                else if(cur_deflect_idx != 0 && cur_reorder_idx != 0){
+                    cur_status = 2;
+                }
+            
+                if(cur_status == 1){    
+                    if(hdr.flowinfo.deflect_idx == 0){
+                        //如果当前数据包未被分配过偏转ID，则更新偏转ID
+                        cur_deflect_idx = cur_deflect_idx + 1;
+                        //更新记录表上的最新偏转ID
+                        deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
+                        //需要更新包所携带的偏转ID
+                        hdr.flowinfo.deflect_idx = cur_deflect_idx;
+                    }
+                }
+                else if (cur_status == 2){
+                    if (cur_reorder_idx == hdr.flowinfo.deflect_idx){
+                        //包所携带的偏转ID和待恢复的ID匹配（说明符合流的包次序）
+                        //更新「下一个」待恢复的偏转ID
+                        cur_reorder_idx = cur_reorder_idx + 1;
+                        deflect_flag = 0; //当前的数据包不需偏转
+                        if(cur_deflect_idx + 1 == cur_reorder_idx){ //说明全部偏转的数据包已恢复原次序
+                            deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, 0);
+                            reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, 0);
+                            cur_status = 0; //转换状态
+                        }
+                        else{
+                            reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
+                        }
+                    }
+                    else { //两偏转ID不匹配，需要将包进行偏转
+                        deflect_flag = 1;
+                        if(hdr.flowinfo.deflect_idx == 0){
+                            //如果当前数据包未被分配过偏转ID，则：
+                            cur_deflect_idx = cur_deflect_idx + 1;
+                            //更新记录表上的最新偏转ID
+                            deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
+                            //需要更新包所携带的偏转ID
+                            hdr.flowinfo.deflect_idx = cur_deflect_idx;
+                        }
+                    }
+                }
+
+                if(cur_status == 1 || cur_status == 2 && deflect_flag == 1){     //即将出的端口，比较拥塞
                     if (DEFLECTION_MODE == 1){      //Random Deflection
                         random(tmp_port, 9w1, meta.port_nums);
                         //tmp_recorder.write(0, tmp_port); Debug使用
