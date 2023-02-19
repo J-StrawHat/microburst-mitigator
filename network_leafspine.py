@@ -2,7 +2,7 @@ from mininet.log import lg, info
 from mininet.util import pmonitor
 from p4utils.mininetlib.network_API import NetworkAPI
 import subprocess
-import os, sys, re
+import os, sys, re, time
 import csv
 
 def init_topology(network_api):
@@ -74,7 +74,7 @@ def init_topology(network_api):
     network_api.l3()
 
     # Nodes general options
-    network_api.enablePcapDumpAll()
+    network_api.disablePcapDumpAll()
     network_api.disableLogAll()
     network_api.disableCli()
     # network_api.enableCli()
@@ -147,7 +147,7 @@ def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     burst_bandwidth_avg = sum(burst_bandwidth)/len(burst_bandwidth)
     burst_lost_avg = sum(burst_loss)/len(burst_loss)
 
-    print("=== round end (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size))
+    print('\033[96m' + "=== round end (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size) + '\033[0m')
     print("background", bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg)
     print("burst", burst_fcts_avg, burst_jitters_avg, burst_bandwidth_avg, burst_lost_avg)
     bg_res_tuple = (bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg)
@@ -158,11 +158,15 @@ def run_measurement(net, bg_load = 25, bg_size = 20, burst_size = 5):
     agg_road_list = []
     bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_list = [], [], [], []
     burst_fcts_list, burst_jitters_list, burst_bandwidth_list, burst_lost_list = [], [], [], []
-    cur_agg_road = bg_load + 10
+    if bg_load == 25: 
+        agg_road_list = [35, 45, 55, 65, 75, 85, 95]
+    elif bg_load == 50:
+        agg_road_list = [55, 65, 75, 85, 95]
+    elif bg_load == 75:
+        agg_road_list = [80, 85, 90, 95]
     idx = 1
-    while cur_agg_road <= 95:
-        agg_road_list.append(cur_agg_road)
-        print("=== [%d] round begin (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (idx, bg_load, bg_size, cur_agg_road - bg_load, burst_size))
+    for cur_agg_road in agg_road_list:
+        print('\033[96m' + "=== [%d] round begin (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (idx, bg_load, bg_size, cur_agg_road - bg_load, burst_size) + '\033[0m')
         bg_test_res, burst_test_res = run_iperf_loop(net, idx,
                                                     bg_bw = bg_load, 
                                                     burst_bw = cur_agg_road - bg_load,
@@ -178,7 +182,6 @@ def run_measurement(net, bg_load = 25, bg_size = 20, burst_size = 5):
         burst_bandwidth_list.append(burst_test_res[2])
         burst_lost_list.append(burst_test_res[3])
 
-        cur_agg_road += 10
         idx += 1
     
     bg_rows = zip(agg_road_list, bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_list)
@@ -201,13 +204,14 @@ network_api = NetworkAPI()
 init_topology(network_api)
 
 network_api.startNetwork()
-print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
 net = network_api.net
 
 h1, h2, h3, h4, h5 = net.getNodeByName('h1', 'h2', 'h3', 'h4', 'h5')
 
 print(h1.cmd("ping -c5 {}".format(h2.IP())))
 
+start_time = time.time()
 # 50 20
 # 20 5
 run_measurement(net, bg_size=20, burst_size=5)
@@ -219,5 +223,8 @@ run_measurement(net, bg_load=50, bg_size=50, burst_size=20)
 run_measurement(net, bg_load=75, bg_size=20, burst_size=5)
 run_measurement(net, bg_load=75, bg_size=50, burst_size=20)
 
-print("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&")
+end_time = time.time()
+
+print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
 network_api.stopNetwork()
+print("Runtime：", end_time - start_time, "s")

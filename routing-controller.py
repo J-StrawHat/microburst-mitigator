@@ -2,7 +2,7 @@ from p4utils.utils.helper import load_topo
 from p4utils.utils.sswitch_thrift_API import SimpleSwitchThriftAPI
 
 PORT_NUM = 8
-MAX_VALUE = 2 ** 19 - 1
+MAX_VALUE = 2 ** 18 - 1
 
 class RoutingController(object):
 

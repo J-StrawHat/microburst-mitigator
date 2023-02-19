@@ -6,7 +6,7 @@
 #include "include/headers.p4"
 #include "include/parsers.p4"
 #define SHOW_FLOWINFO false
-#define DEFLECTION_MODE 1       //0:不偏转; 1:随机偏转; 2:随机选2个取局部最小值; 3:遍历取全局最小值
+#define DEFLECTION_MODE 0       //0:不偏转; 1:随机偏转; 2:随机选2个取局部最小值; 3:遍历取全局最小值
 
 /** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -20,14 +20,14 @@ control MyIngress(inout headers hdr,
     //write(in bit<32> index, in T value);
     //read(out T result, in bit<32> index);
     register<bit<9>>(1)         port_num_recorder; //记录当前交换机有多少个端口
-    register<bit<9>>(1)         tmp_recorder; 
+    //register<bit<9>>(1)         tmp_recorder; 
     register<bit<19>>(PORT_NUM) qdepth_table; //记录邻居交换机的深度情况（注意，端口0是连接Thrift服务器的）
     register<bit<19>>(2)        min_qdepth_recorder;
     bit<19>                     cur_deq_qdepth;
     bit<19>                     min_deq_qdepth;
     bit<9>                      min_deq_dqdepth_idx;
     bit<9>                      tmp_port;
-    
+
     action drop() {
         mark_to_drop(standard_metadata);
     }
@@ -98,12 +98,77 @@ control MyIngress(inout headers hdr,
                 port_num_recorder.read(meta.port_nums, 0);
                 if(cur_deq_qdepth > THRESHOLD){     //即将出的端口，比较拥塞
                     if (DEFLECTION_MODE == 1){      //Random Deflection
-                        random(tmp_port, 9w0, meta.port_nums);
-                        tmp_recorder.write(0, tmp_port);
+                        random(tmp_port, 9w1, meta.port_nums);
+                        //tmp_recorder.write(0, tmp_port); Debug使用
                         standard_metadata.egress_spec = tmp_port;
                     }
                     else if(DEFLECTION_MODE == 2){  //Selective Deflection
-                        min_qdepth_recorder.read(min_deq_dqdepth_idx, 0);
+                        min_deq_qdepth = cur_deq_qdepth;
+                        min_deq_dqdepth_idx = standard_metadata.egress_port;
+                        random(tmp_port, 9w1, meta.port_nums);
+                        qdepth_table.read(cur_deq_qdepth, (bit<32>)tmp_port);
+                        if(min_deq_qdepth > cur_deq_qdepth){
+                            min_deq_qdepth = cur_deq_qdepth;
+                            min_deq_dqdepth_idx = tmp_port;
+                        }
+                        random(tmp_port, 9w1, meta.port_nums);
+                        qdepth_table.read(cur_deq_qdepth, (bit<32>)tmp_port);
+                        if(min_deq_qdepth > cur_deq_qdepth){
+                            min_deq_qdepth = cur_deq_qdepth;
+                            min_deq_dqdepth_idx = tmp_port;
+                        }
+                        standard_metadata.egress_spec = min_deq_dqdepth_idx;
+                    }
+                    else if(DEFLECTION_MODE == 3){ // 假定有8个端口
+                        min_deq_qdepth = cur_deq_qdepth;
+                        min_deq_dqdepth_idx = standard_metadata.egress_port;
+                        qdepth_table.read(cur_deq_qdepth, 1);
+                        if(min_deq_qdepth > cur_deq_qdepth){
+                            min_deq_qdepth = cur_deq_qdepth;
+                            min_deq_dqdepth_idx = 1;
+                        }
+                        if(meta.port_nums > 2){
+                            qdepth_table.read(cur_deq_qdepth, 2);
+                            if(min_deq_qdepth > cur_deq_qdepth){
+                                min_deq_qdepth = cur_deq_qdepth;
+                                min_deq_dqdepth_idx = 2;
+                            }
+                        }
+                        if(meta.port_nums > 3){
+                            qdepth_table.read(cur_deq_qdepth, 3);
+                            if(min_deq_qdepth > cur_deq_qdepth){
+                                min_deq_qdepth = cur_deq_qdepth;
+                                min_deq_dqdepth_idx = 3;
+                            }
+                        }
+                        if(meta.port_nums > 4){
+                            qdepth_table.read(cur_deq_qdepth, 4);
+                            if(min_deq_qdepth > cur_deq_qdepth){
+                                min_deq_qdepth = cur_deq_qdepth;
+                                min_deq_dqdepth_idx = 4;
+                            }
+                        }
+                        if(meta.port_nums > 5){
+                            qdepth_table.read(cur_deq_qdepth, 5);
+                            if(min_deq_qdepth > cur_deq_qdepth){
+                                min_deq_qdepth = cur_deq_qdepth;
+                                min_deq_dqdepth_idx = 5;
+                            }
+                        }
+                        if(meta.port_nums > 6){
+                            qdepth_table.read(cur_deq_qdepth, 6);
+                            if(min_deq_qdepth > cur_deq_qdepth){
+                                min_deq_qdepth = cur_deq_qdepth;
+                                min_deq_dqdepth_idx = 6;
+                            }
+                        }
+                        if(meta.port_nums > 7){
+                            qdepth_table.read(cur_deq_qdepth, 7);
+                            if(min_deq_qdepth > cur_deq_qdepth){
+                                min_deq_qdepth = cur_deq_qdepth;
+                                min_deq_dqdepth_idx = 7;
+                            }
+                        }
                         standard_metadata.egress_spec = min_deq_dqdepth_idx;
                     }
                 }
