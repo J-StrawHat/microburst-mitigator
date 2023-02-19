@@ -22,7 +22,6 @@ control MyIngress(inout headers hdr,
     register<bit<9>>(1)         port_num_recorder; //记录当前交换机有多少个端口
     //register<bit<9>>(1)         tmp_recorder; 
     register<bit<19>>(PORT_NUM) qdepth_table; //记录邻居交换机的深度情况（注意，端口0是连接Thrift服务器的）
-    register<bit<19>>(2)        min_qdepth_recorder;
     bit<19>                     cur_deq_qdepth;
     bit<19>                     min_deq_qdepth;
     bit<9>                      min_deq_dqdepth_idx;
@@ -85,13 +84,6 @@ control MyIngress(inout headers hdr,
             if (hdr.flowinfo.isValid()){
                 //将入端口的队列深度（告知其他邻近的交换机的队列深度）记录到「深度记录表」中
                 qdepth_table.write((bit<32>)standard_metadata.ingress_port, hdr.flowinfo.deq_qdepth);
-                //读出并维护最小深度
-                min_qdepth_recorder.read(min_deq_qdepth, 1);
-                if (min_deq_qdepth >= hdr.flowinfo.deq_qdepth) {
-                    min_qdepth_recorder.write(0, (bit<19>)standard_metadata.ingress_port);  //更新端口号
-                    min_qdepth_recorder.write(1, hdr.flowinfo.deq_qdepth);                  //更新深度
-                    min_deq_qdepth = hdr.flowinfo.deq_qdepth;                               //更新临时变量
-                }
                 //从「深度记录表」中读出当前出端口的队列深度，并存放到cur_deq_qdepth
                 qdepth_table.read(cur_deq_qdepth, (bit<32>)standard_metadata.egress_port);
                 //读出当前交换机的端口数量（边界）

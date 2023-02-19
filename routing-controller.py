@@ -39,7 +39,6 @@ class RoutingController(object):
             port_nums = len(self.topo.get_interfaces_to_node(sw_name))
             controller.register_write("port_num_recorder", [0, 1], port_nums)
             controller.register_write("qdepth_table", [0, PORT_NUM], 0)
-            controller.register_write("min_qdepth_recorder", [0, 2], MAX_VALUE)
 
     def set_egress_type_table(self):
         # 利用拓扑信息，学习每一个交换机的邻节点是交换机/主机
