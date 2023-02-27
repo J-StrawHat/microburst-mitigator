@@ -14,9 +14,9 @@ def run_iperf(fa_dir = 'log', idx = '1', ip_addr = '10.2.3.2', bandwidth = '25M'
     file_name = fa_dir + "/iperf_" + flow_type + "_" + idx + "_" + bandwidth + "_" + flowsize
     iperf_cmd = []
     if iperf_mode == 3:
-        iperf_cmd = ['iperf3', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5000']
+        iperf_cmd = ['iperf3', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5001']
     elif iperf_mode == 2:
-        iperf_cmd = ['iperf', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5000', '-w', '10M']
+        iperf_cmd = ['iperf', '-c', ip_addr, '-b', bandwidth, '-n', flowsize, '-p', '5001', '-w', '10M']
     if is_udp:
         iperf_cmd.append('-u')
         file_name += "_u.txt"

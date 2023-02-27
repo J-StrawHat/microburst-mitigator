@@ -215,13 +215,13 @@ start_time = time.time()
 # 50 20
 # 20 5
 run_measurement(net, bg_size=20, burst_size=5)
-run_measurement(net, bg_size=50, burst_size=20)
+#run_measurement(net, bg_size=50, burst_size=20)
 
 run_measurement(net, bg_load=50, bg_size=20, burst_size=5)
-run_measurement(net, bg_load=50, bg_size=50, burst_size=20)
+#run_measurement(net, bg_load=50, bg_size=50, burst_size=20)
 
 run_measurement(net, bg_load=75, bg_size=20, burst_size=5)
-run_measurement(net, bg_load=75, bg_size=50, burst_size=20)
+#run_measurement(net, bg_load=75, bg_size=50, burst_size=20)
 
 end_time = time.time()
 

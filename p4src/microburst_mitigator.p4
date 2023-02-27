@@ -29,7 +29,7 @@ control MyIngress(inout headers hdr,
     bit<19>                     min_deq_qdepth;
     bit<9>                      min_deq_dqdepth_idx;
     bit<9>                      tmp_port;
-    bit<2>                      cur_status;
+    bit<2>                      cur_status = 0;
     bit<32>                     cur_deflect_idx;
     bit<32>                     cur_reorder_idx;
     bit<1>                      deflect_flag;
@@ -141,6 +141,7 @@ control MyIngress(inout headers hdr,
                             deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, 0);
                             reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, 0);
                             cur_status = 0; //转换状态
+                            hdr.flowinfo.deflect_idx = 0; //匹配即可去掉deflect_id
                         }
                         else{
                             reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
@@ -281,7 +282,7 @@ control MyEgress(inout headers hdr,
     apply {
         if (hdr.flowinfo.isValid()){
             hdr.flowinfo.egress_ts = standard_metadata.egress_global_timestamp;
-            hdr.flowinfo.deflect_idx = hdr.flowinfo.deflect_idx + 1;        //【TODO】迭代交换机序号
+            //hdr.flowinfo.deflect_idx = hdr.flowinfo.deflect_idx + 1;        //【TODO】迭代交换机序号
             hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;         //更新出队列深度
 
             if (!SHOW_FLOWINFO && meta.egress_type == TYPE_EGRESS_HOST){    //如果下一跳是主机，说明将要结束
