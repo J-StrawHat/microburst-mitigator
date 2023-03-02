@@ -33,7 +33,7 @@ def handle_pkt(pkt):
                 print(time.time())
                 pkt[TCP].show()
 
-        print_flowinfo(pkt)
+        #print_flowinfo(pkt)
         
 
         # msg = tcp.payload.load.decode('UTF-8') 【TODO】iperf工具似乎不带load
@@ -54,7 +54,6 @@ def main():
     iface = ifaces[0]
     print("sniffing on %s" % iface)
     
-    tmp = IP(dst = '10.1.1.2')
     sys.stdout.flush()                      # 显式地让缓冲区的内容输出
     sniff(iface = iface,      # 指定要在哪个网络接口上进行抓包
           prn = lambda x: handle_pkt(x))    #每当一个符合filter的报文被探测到时，就会执行回调函数

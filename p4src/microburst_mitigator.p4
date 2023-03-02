@@ -6,7 +6,7 @@
 #include "include/headers.p4"
 #include "include/parsers.p4"
 #define SHOW_FLOWINFO false
-#define DEFLECTION_MODE 1       //0:不偏转; 1:随机偏转; 2:随机选2个取局部最小值; 3:遍历取全局最小值
+#define DEFLECTION_MODE 0       //0:不偏转; 1:随机偏转; 2:随机选2个取局部最小值; 3:遍历取全局最小值
 
 /** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -32,7 +32,7 @@ control MyIngress(inout headers hdr,
     bit<2>                      cur_status = 0;
     bit<32>                     cur_deflect_idx;
     bit<32>                     cur_reorder_idx;
-    bit<1>                      deflect_flag;
+    bit<1>                      deflect_flag = 0;
 
     action drop() {
         mark_to_drop(standard_metadata);

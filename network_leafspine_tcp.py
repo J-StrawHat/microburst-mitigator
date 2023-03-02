@@ -1,0 +1,217 @@
+from mininet.log import lg, info
+from mininet.util import pmonitor
+from p4utils.mininetlib.network_API import NetworkAPI
+import subprocess
+import os, sys, re, time
+import csv
+
+def init_topology(network_api):
+    # Network general options
+    network_api.setLogLevel('info')
+    network_api.execScript('python routing-controller.py', reboot=True)
+
+    # Network definition
+    network_api.addP4Switch('s1')
+    network_api.addP4Switch('s2')
+    network_api.addP4Switch('s3')
+    network_api.addP4Switch('s4')
+    network_api.addP4Switch('s5')
+    network_api.addP4Switch('s6')
+    network_api.addP4Switch('s7')
+    network_api.setP4SourceAll('p4src/microburst_mitigator.p4')
+
+    network_api.addHost('h1')
+    network_api.addHost('h2')
+    network_api.addHost('h3')
+    network_api.addHost('h4')
+    network_api.addHost('h5')
+    network_api.addHost('h6')
+    network_api.addHost('h7')
+    network_api.addHost('h8')
+
+    # Leaf
+    network_api.addLink("h1", "s1")
+    network_api.addLink("h2", "s1")
+    network_api.addLink("h3", "s2")
+    network_api.addLink("h4", "s2")
+    network_api.addLink("h5", "s3")
+    network_api.addLink("h6", "s3")
+    network_api.addLink("h7", "s4")
+    network_api.addLink("h8", "s4")
+
+    # Spine 
+    network_api.addLink("s1", "s5")
+    network_api.addLink("s2", "s5")
+    network_api.addLink("s4", "s5")
+
+    network_api.addLink("s2", "s6")
+    network_api.addLink("s3", "s6")
+    network_api.addLink("s4", "s6")
+
+    network_api.addLink("s2", "s7")
+    network_api.addLink("s4", "s7")
+
+    # Sets links bandwidth
+    network_api.setBw("h1", "s1", 100)
+    network_api.setBw("h2", "s1", 100)
+    network_api.setBw("h3", "s2", 100)
+    network_api.setBw("h4", "s2", 100)
+    network_api.setBw("h5", "s3", 100)
+    network_api.setBw("h6", "s3", 100)
+    network_api.setBw("h7", "s4", 100)
+    network_api.setBw("h8", "s4", 100)
+
+    network_api.setBw("s1", "s5", 400)
+    network_api.setBw("s2", "s5", 400)
+    network_api.setBw("s4", "s5", 400)
+    network_api.setBw("s2", "s6", 400)
+    network_api.setBw("s3", "s6", 400)
+    network_api.setBw("s4", "s6", 400)
+    network_api.setBw("s2", "s7", 400)
+    network_api.setBw("s4", "s7", 400)
+
+    # Assignment strategy
+    network_api.l3()
+
+    # Nodes general options
+    network_api.disablePcapDumpAll()
+    network_api.disableLogAll()
+    network_api.disableCli()
+    # network_api.enableCli()
+
+def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
+    h1, h3, h5 = net.get('h1', 'h3', 'h5')
+
+    h3.cmd('iperf -s -p 5000 &')
+    h3.cmd('tcpdump -i h3-eth0 -w pcap/h1_h3.pcap tcp port 5000 &')
+    h3.cmd('iperf -s -p 5001 &')
+    h3.cmd('tcpdump -i h3-eth0 -w pcap/h5_h3.pcap tcp port 5001 &')
+
+    h1.sendCmd('iperf -c %s -b %dM -n %dM -p 5000' % (h3.IP(), bg_bw, bg_size) )
+    h5.sendCmd('iperf -c %s -b %dM -n %dM -p 5001' % (h3.IP(), burst_bw, burst_size) )
+
+
+    h1_out = h1.waitOutput()
+    h5_out = h5.waitOutput()
+
+    h3.cmd('kill $(pgrep tcpdump)')
+
+    bg_retra = h1.cmd('tshark -r pcap/h1_h3.pcap -Y tcp.analysis.retransmission | wc -l').split('\r\n')[1] 
+    burst_retra = h5.cmd('tshark -r pcap/h5_h3.pcap -Y tcp.analysis.retransmission | wc -l').split('\r\n')[1]
+    
+    print('[Retransmission]')
+    print('Background:', bg_retra, ' Burst:', burst_retra)
+    #print(h1_out)
+    #print( h1.cmd(' tshark -r pcap/h1_h3.pcap  -qz \'io,stat,1,FRAMES\' '))
+    #print( h5.cmd(' tshark -r pcap/h5_h3.pcap  -qz \'io,stat,1,FRAMES\' '))
+
+    bg_fct = h1.cmd(' tshark -r pcap/h1_h3.pcap  -qz \'io,stat,1,FRAMES\' | grep Duration | awk \'{print $3}\' ').split('\r\n')[1]  
+    # iperf的持续时间通常比实际FCT要短，因为它不考虑连接建立和关闭的时间以及其他任何传输数据以外的延迟时间
+
+    #print(h5_out)
+    burst_fct = h5.cmd(' tshark -r pcap/h5_h3.pcap  -qz \'io,stat,1,FRAMES\' | grep Duration | awk \'{print $3}\' ').split('\r\n')[1] 
+    
+    print('[FCT]')
+    print('Background:', bg_fct, ' Burst:', burst_fct)
+    print()
+
+    bg_res = {'FCT(sec)':float(bg_fct), 'Retransmission':int(bg_retra)}
+    burst_res = {'FCT(sec)':float(burst_fct), 'Retransmission':int(burst_retra)}
+    return bg_res, burst_res
+
+
+def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
+    bg_fcts, bg_retrans = [], []
+    burst_fcts, burst_retrans = [], []
+    for i in range(20):
+        print("=========== [%d] round %d ===========" % (idx, i + 1))
+        bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
+        bg_fcts.append(bg_res["FCT(sec)"])
+        bg_retrans.append(bg_res["Retransmission"])
+        burst_fcts.append(burst_res["FCT(sec)"])
+        burst_retrans.append(burst_res["Retransmission"])
+
+    bg_fcts_avg = sum(bg_fcts)/len(bg_fcts)
+    bg_retrans_avg = sum(bg_retrans)/len(bg_retrans)
+
+    burst_fcts_avg = sum(burst_fcts)/len(burst_fcts)
+    burst_retrans_avg = sum(burst_retrans)/len(burst_retrans)
+
+    print('\033[96m' + "=== round end (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size) + '\033[0m')
+    print("background", bg_fcts_avg, bg_retrans_avg)
+    print("burst", burst_fcts_avg, burst_retrans_avg)
+    bg_res_tuple = (bg_fcts_avg, bg_retrans_avg)
+    burst_res_tuple = (burst_fcts_avg, burst_retrans_avg)
+    return bg_res_tuple, burst_res_tuple
+
+def run_measurement(net, bg_load = 25, bg_size = 20, burst_size = 5):
+    agg_road_list = []
+    bg_fcts_list, bg_retrans_list = [], []
+    burst_fcts_list, burst_retrans_list = [], []
+    if bg_load == 25: 
+        agg_road_list = [35, 45, 55, 65, 75, 85, 95]
+    elif bg_load == 50:
+        agg_road_list = [55, 65, 75, 85, 95]
+    elif bg_load == 75:
+        agg_road_list = [80, 85, 90, 95]
+    idx = 1
+    for cur_agg_road in agg_road_list:
+        print('\033[96m' + "=== [%d] round begin (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (idx, bg_load, bg_size, cur_agg_road - bg_load, burst_size) + '\033[0m')
+        bg_test_res, burst_test_res = run_iperf_loop(net, idx,
+                                                    bg_bw = bg_load, 
+                                                    burst_bw = cur_agg_road - bg_load,
+                                                    bg_size = bg_size,
+                                                    burst_size = burst_size)
+        bg_fcts_list.append(bg_test_res[0])
+        bg_retrans_list.append(bg_test_res[1])
+
+        burst_fcts_list.append(burst_test_res[0])
+        burst_retrans_list.append(burst_test_res[1])
+
+        idx += 1
+    
+    bg_rows = zip(agg_road_list, bg_fcts_list, bg_retrans_list)
+    bg_log_filename = './log/tcp_result_bg%d_bg_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
+    burst_rows = zip(agg_road_list, burst_fcts_list, burst_retrans_list)
+    burst_log_filename = './log/tcp_result_bg%d_burst_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
+
+    with open(bg_log_filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean number of packet retransmission'])
+        writer.writerows(bg_rows)
+    
+    with open(burst_log_filename, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean number of packet retransmission'])
+        writer.writerows(burst_rows)
+
+
+network_api = NetworkAPI()
+init_topology(network_api)
+
+network_api.startNetwork()
+print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
+net = network_api.net
+
+h1, h2, h3, h4, h5 = net.getNodeByName('h1', 'h2', 'h3', 'h4', 'h5')
+
+print(h1.cmd("ping -c5 {}".format(h2.IP())))
+
+start_time = time.time()
+# 50 20
+# 20 5
+#run_measurement(net, bg_size=20, burst_size=5)
+run_measurement(net, bg_size=200, burst_size=50)
+
+#run_measurement(net, bg_load=50, bg_size=20, burst_size=5)
+run_measurement(net, bg_load=50, bg_size=200, burst_size=50)
+
+#run_iperf(net, bg_bw=75, bg_size=100, burst_bw=5, burst_size=50)
+#run_measurement(net, bg_load=75, bg_size=20, burst_size=5)
+run_measurement(net, bg_load=75, bg_size=200, burst_size=50)
+
+end_time = time.time()
+
+print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
+network_api.stopNetwork()
+print("Runtime：", end_time - start_time, "s")
