@@ -4,6 +4,15 @@ from p4utils.mininetlib.network_API import NetworkAPI
 import subprocess
 import os, sys, re, time
 import csv
+from jinja2 import Environment, FileSystemLoader
+
+leaf_bw = 400
+spine_bw = 1000
+background_flow_size = 20
+burst_flow_size = 5
+# 200 50
+# 20 5
+fa_dir_pre = 'log/udp_200_50_'
 
 def init_topology(network_api):
     # Network general options
@@ -93,12 +102,12 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
     h1_out = h1.waitOutput()
     print(h1_out)
     h1_result_line = h1_out.split('\n')[11] # 取出最终数据那一行
-    la = h1_result_line.split(' ') # 将这一行的结果分割
-    fct_a = la[3].split("-")
+    la = h1_result_line.split() # 将这一行的结果分割
+    fct_a = la[2].split("-")
     bg_res["FCT(sec)"] = float(fct_a[1])
-    bg_res["Transfer(MBytes)"] = float(la[6])
-    bg_res["Bandwidth(Mbits/sec)"] = float(la[9])
-    bg_res["Jitter(ms)"] = float(la[13])
+    bg_res["Transfer(MBytes)"] = float(la[4])
+    bg_res["Bandwidth(Mbits/sec)"] = float(la[6])
+    bg_res["Jitter(ms)"] = float(la[8])
     lost_a = la[-2].split("/")
     bg_res["Lost"] = int(lost_a[0]) / int(lost_a[1])
     
@@ -109,12 +118,12 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
     h5_out = h5.waitOutput()
     print(h5_out)
     h5_result_line = h5_out.split('\n')[11] # 取出最终数据那一行
-    la = h5_result_line.split(' ') # 将这一行的结果分割
-    fct_a = la[3].split("-")
+    la = h5_result_line.split() # 将这一行的结果分割
+    fct_a = la[2].split("-")
     burst_res["FCT(sec)"] = float(fct_a[1])
-    burst_res["Transfer(MBytes)"] = float(la[6])
-    burst_res["Bandwidth(Mbits/sec)"] = float(la[9])
-    burst_res["Jitter(ms)"] = float(la[13])
+    burst_res["Transfer(MBytes)"] = float(la[4])
+    burst_res["Bandwidth(Mbits/sec)"] = float(la[6])
+    burst_res["Jitter(ms)"] = float(la[8])
     lost_a = la[-2].split("/")
     burst_res["Lost"] = int(lost_a[0]) / int(lost_a[1])
     
@@ -125,7 +134,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_jitters, bg_bandwidth, bg_loss = [], [], [], []
     burst_fcts, burst_jitters, burst_bandwidth, burst_loss = [], [], [], []
-    for i in range(20):
+    for i in range(50):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -147,14 +156,14 @@ def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     burst_bandwidth_avg = sum(burst_bandwidth)/len(burst_bandwidth)
     burst_lost_avg = sum(burst_loss)/len(burst_loss)
 
-    print('\033[96m' + "=== round end (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size) + '\033[0m')
+    print('\033[96m' + "=== round end (bg:%f Mbps, %d MBytes) (burst:%f Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size) + '\033[0m')
     print("background", bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg)
     print("burst", burst_fcts_avg, burst_jitters_avg, burst_bandwidth_avg, burst_lost_avg)
     bg_res_tuple = (bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg)
     burst_res_tuple = (burst_fcts_avg, burst_jitters_avg, burst_bandwidth_avg, burst_lost_avg)
     return bg_res_tuple, burst_res_tuple
 
-def run_measurement(net, bg_load = 25, bg_size = 20, burst_size = 5):
+def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_size = 5):
     agg_road_list = []
     bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_list = [], [], [], []
     burst_fcts_list, burst_jitters_list, burst_bandwidth_list, burst_lost_list = [], [], [], []
@@ -166,10 +175,10 @@ def run_measurement(net, bg_load = 25, bg_size = 20, burst_size = 5):
         agg_road_list = [80, 85, 90, 95]
     idx = 1
     for cur_agg_road in agg_road_list:
-        print('\033[96m' + "=== [%d] round begin (bg:%d Mbps, %d MBytes) (burst:%d Mbps, %d MBytes) ===" % (idx, bg_load, bg_size, cur_agg_road - bg_load, burst_size) + '\033[0m')
+        print('\033[96m' + "=== [%d] round begin (bg:%f Mbps, %d MBytes) (burst:%f Mbps, %d MBytes) ===" % (idx, 0.01 * bg_load * leaf_bw, bg_size, 0.01 * (cur_agg_road - bg_load) * leaf_bw, burst_size) + '\033[0m')
         bg_test_res, burst_test_res = run_iperf_loop(net, idx,
-                                                    bg_bw = bg_load, 
-                                                    burst_bw = cur_agg_road - bg_load,
+                                                    bg_bw = 0.01 * bg_load * leaf_bw, 
+                                                    burst_bw = 0.01 * (cur_agg_road - bg_load) * leaf_bw,
                                                     bg_size = bg_size,
                                                     burst_size = burst_size)
         bg_fcts_list.append(bg_test_res[0])
@@ -183,11 +192,15 @@ def run_measurement(net, bg_load = 25, bg_size = 20, burst_size = 5):
         burst_lost_list.append(burst_test_res[3])
 
         idx += 1
-    
+
+    fa_dir = fa_dir_pre + str(deflect_mode)
+    if not os.path.exists(fa_dir):
+        os.mkdir(fa_dir)
+
     bg_rows = zip(agg_road_list, bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_list)
-    bg_log_filename = './log/result_bg%d_bg_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
+    bg_log_filename = fa_dir + '/result_bg%d_bg_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
     burst_rows = zip(agg_road_list, burst_fcts_list, burst_jitters_list, burst_bandwidth_list, burst_lost_list)
-    burst_log_filename = './log/result_bg%d_burst_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
+    burst_log_filename = fa_dir + '/result_bg%d_burst_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
 
     with open(bg_log_filename, 'w', newline='') as f:
         writer = csv.writer(f)
@@ -199,32 +212,41 @@ def run_measurement(net, bg_load = 25, bg_size = 20, burst_size = 5):
         writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean Jitter (ms)', 'Mean Bandwidth (Mbps)', 'Mean Packet Lost (%)'])
         writer.writerows(burst_rows)
 
+total_start_time = time.time()
+for i in [0, 1, 3]:
+    env = Environment(loader=FileSystemLoader('p4src/include'))
+    template = env.get_template('constants.p4template')
 
-network_api = NetworkAPI()
-init_topology(network_api)
+    output = template.render(deflect_mode=i, threshold = 25)
+    #print(output)
 
-network_api.startNetwork()
-print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
-net = network_api.net
+    # 将渲染后的代码写入文件中
+    with open('p4src/include/constants.p4', 'w') as f:
+        f.write(output)
 
-h1, h2, h3, h4, h5 = net.getNodeByName('h1', 'h2', 'h3', 'h4', 'h5')
+    network_api = NetworkAPI()
+    init_topology(network_api)
 
-print(h1.cmd("ping -c5 {}".format(h2.IP())))
+    network_api.startNetwork()
+    print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
+    net = network_api.net
 
-start_time = time.time()
-# 50 20
-# 20 5
-run_measurement(net, bg_size=20, burst_size=5)
-#run_measurement(net, bg_size=50, burst_size=20)
+    h1, h2, h3, h4, h5 = net.getNodeByName('h1', 'h2', 'h3', 'h4', 'h5')
 
-run_measurement(net, bg_load=50, bg_size=20, burst_size=5)
-#run_measurement(net, bg_load=50, bg_size=50, burst_size=20)
+    print(h1.cmd("ping -c5 {}".format(h2.IP())))
 
-run_measurement(net, bg_load=75, bg_size=20, burst_size=5)
-#run_measurement(net, bg_load=75, bg_size=50, burst_size=20)
+    start_time = time.time()
 
-end_time = time.time()
+    run_measurement(net, deflect_mode = i, bg_size=background_flow_size, burst_size=burst_flow_size)
 
-print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
-network_api.stopNetwork()
-print("Runtime：", end_time - start_time, "s")
+    run_measurement(net, deflect_mode = i, bg_load=50, bg_size=background_flow_size, burst_size=burst_flow_size)
+
+    run_measurement(net, deflect_mode = i, bg_load=75, bg_size=background_flow_size, burst_size=burst_flow_size)
+
+    end_time = time.time()
+
+    print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
+    network_api.stopNetwork()
+    print("Runtime：", end_time - start_time, "s")
+total_end_time = time.time()
+print('\033[92m' + 'Runtimes:%f'%(total_end_time - total_start_time) + '\033[0m')
