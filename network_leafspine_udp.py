@@ -6,13 +6,14 @@ import os, sys, re, time
 import csv
 from jinja2 import Environment, FileSystemLoader
 
-leaf_bw = 400
-spine_bw = 1000
+leaf_bw = 100
+spine_bw = 400
 background_flow_size = 20
 burst_flow_size = 5
 # 200 50
 # 20 5
-fa_dir_pre = 'log/udp_200_50_'
+curdate = time.strftime("%m%d_%H", time.localtime())
+fa_dir_pre = 'log/%s_udp_%d_%d/%s_udp_%d_%d_' % (curdate, background_flow_size, burst_flow_size, curdate, background_flow_size, burst_flow_size)
 
 def init_topology(network_api):
     # Network general options
@@ -61,23 +62,23 @@ def init_topology(network_api):
     network_api.addLink("s4", "s7")
 
     # Sets links bandwidth
-    network_api.setBw("h1", "s1", 100)
-    network_api.setBw("h2", "s1", 100)
-    network_api.setBw("h3", "s2", 100)
-    network_api.setBw("h4", "s2", 100)
-    network_api.setBw("h5", "s3", 100)
-    network_api.setBw("h6", "s3", 100)
-    network_api.setBw("h7", "s4", 100)
-    network_api.setBw("h8", "s4", 100)
+    network_api.setBw("h1", "s1", leaf_bw)
+    network_api.setBw("h2", "s1", leaf_bw)
+    network_api.setBw("h3", "s2", leaf_bw)
+    network_api.setBw("h4", "s2", leaf_bw)
+    network_api.setBw("h5", "s3", leaf_bw)
+    network_api.setBw("h6", "s3", leaf_bw)
+    network_api.setBw("h7", "s4", leaf_bw)
+    network_api.setBw("h8", "s4", leaf_bw)
 
-    network_api.setBw("s1", "s5", 400)
-    network_api.setBw("s2", "s5", 400)
-    network_api.setBw("s4", "s5", 400)
-    network_api.setBw("s2", "s6", 400)
-    network_api.setBw("s3", "s6", 400)
-    network_api.setBw("s4", "s6", 400)
-    network_api.setBw("s2", "s7", 400)
-    network_api.setBw("s4", "s7", 400)
+    network_api.setBw("s1", "s5", spine_bw)
+    network_api.setBw("s2", "s5", spine_bw)
+    network_api.setBw("s4", "s5", spine_bw)
+    network_api.setBw("s2", "s6", spine_bw)
+    network_api.setBw("s3", "s6", spine_bw)
+    network_api.setBw("s4", "s6", spine_bw)
+    network_api.setBw("s2", "s7", spine_bw)
+    network_api.setBw("s4", "s7", spine_bw)
 
     # Assignment strategy
     network_api.l3()
@@ -86,7 +87,7 @@ def init_topology(network_api):
     network_api.disablePcapDumpAll()
     network_api.disableLogAll()
     network_api.disableCli()
-    # network_api.enableCli()
+    #network_api.enableCli()
 
 def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
     h1, h3, h5 = net.get('h1', 'h3', 'h5')
@@ -134,7 +135,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_jitters, bg_bandwidth, bg_loss = [], [], [], []
     burst_fcts, burst_jitters, burst_bandwidth, burst_loss = [], [], [], []
-    for i in range(50):
+    for i in range(30):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -195,7 +196,7 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
 
     fa_dir = fa_dir_pre + str(deflect_mode)
     if not os.path.exists(fa_dir):
-        os.mkdir(fa_dir)
+        os.makedirs(fa_dir)
 
     bg_rows = zip(agg_road_list, bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_list)
     bg_log_filename = fa_dir + '/result_bg%d_bg_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
@@ -213,11 +214,11 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
         writer.writerows(burst_rows)
 
 total_start_time = time.time()
-for i in [0, 1, 3]:
+for i in [0, 1, 2, 3]:
     env = Environment(loader=FileSystemLoader('p4src/include'))
     template = env.get_template('constants.p4template')
 
-    output = template.render(deflect_mode=i, threshold = 25)
+    output = template.render(deflect_mode=i, threshold = 7)
     #print(output)
 
     # 将渲染后的代码写入文件中

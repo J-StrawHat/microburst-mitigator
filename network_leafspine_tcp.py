@@ -6,13 +6,14 @@ import os, sys, re, time
 import csv
 from jinja2 import Environment, FileSystemLoader
 
-leaf_bw = 400
-spine_bw = 1000
-background_flow_size = 20
-burst_flow_size = 5
+leaf_bw = 100
+spine_bw = 400
+background_flow_size = 200
+burst_flow_size = 50
 # 200 50
 # 20 5
-fa_dir_pre = 'log/tcp_20_5_'
+curdate = time.strftime("%m%d_%H", time.localtime())
+fa_dir_pre = 'log/%s_tcp_%d_%d/%s_tcp_%d_%d_' % (curdate, background_flow_size, burst_flow_size, curdate, background_flow_size, burst_flow_size)
 
 def init_topology(network_api):
     # Network general options
@@ -86,7 +87,7 @@ def init_topology(network_api):
     network_api.disablePcapDumpAll()
     network_api.disableLogAll()
     network_api.disableCli()
-    # network_api.enableCli()
+    #network_api.enableCli()
 
 def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
     h1, h3, h5 = net.get('h1', 'h3', 'h5')
@@ -132,7 +133,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_retrans = [], []
     burst_fcts, burst_retrans = [], []
-    for i in range(50):
+    for i in range(25):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -181,7 +182,7 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
     
     fa_dir = fa_dir_pre + str(deflect_mode)
     if not os.path.exists(fa_dir):
-        os.mkdir(fa_dir)
+        os.makedirs(fa_dir)
     bg_rows = zip(agg_road_list, bg_fcts_list, bg_retrans_list)
     bg_log_filename = fa_dir + '/tcp_result_bg%d_bg_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
     burst_rows = zip(agg_road_list, burst_fcts_list, burst_retrans_list)
@@ -198,7 +199,7 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
         writer.writerows(burst_rows)
 
 total_start_time = time.time()
-for i in [0, 1, 3]:
+for i in [0, 1, 2, 3]:
     env = Environment(loader=FileSystemLoader('p4src/include'))
     template = env.get_template('constants.p4template')
 
@@ -208,7 +209,7 @@ for i in [0, 1, 3]:
     # 将渲染后的代码写入文件中
     with open('p4src/include/constants.p4', 'w') as f:
         f.write(output)
-        
+
     network_api = NetworkAPI()
     init_topology(network_api)
 
