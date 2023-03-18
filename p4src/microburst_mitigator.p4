@@ -24,6 +24,7 @@ control MyIngress(inout headers hdr,
     //register<bit<2>>(1)         status_recorder;    //记录当前交换机的偏转模式(0→1→2)
     //register<bit<9>>(1)         tmp_recorder; 
     register<bit<19>>(PORT_NUM) qdepth_table;       //记录邻居交换机的深度情况（注意，端口0是连接Thrift服务器的）
+    register<bit<9>>(PORT_NUM)  last_port_table;    //上一个策略所选用的端口
     bit<19>                     cur_deq_qdepth;
     bit<19>                     min_deq_qdepth;
     bit<9>                      min_deq_dqdepth_idx;
@@ -180,7 +181,14 @@ control MyIngress(inout headers hdr,
                             min_deq_qdepth = cur_deq_qdepth;
                             min_deq_dqdepth_idx = tmp_port;
                         }
+                        last_port_table.read(tmp_port, (bit<32>)standard_metadata.egress_port);
+                        qdepth_table.read(cur_deq_qdepth, (bit<32>)tmp_port);
+                        if(min_deq_qdepth > cur_deq_qdepth){
+                            min_deq_qdepth = cur_deq_qdepth;
+                            min_deq_dqdepth_idx = tmp_port;
+                        }
                         standard_metadata.egress_spec = min_deq_dqdepth_idx;
+                        last_port_table.write((bit<32>)standard_metadata.egress_port, min_deq_dqdepth_idx);
                     }
                     else if(DEFLECTION_MODE == 3){ // 假定有8个端口
                         min_deq_qdepth = cur_deq_qdepth;
