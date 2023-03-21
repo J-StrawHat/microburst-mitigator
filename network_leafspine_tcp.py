@@ -4,11 +4,12 @@ from p4utils.mininetlib.network_API import NetworkAPI
 import subprocess
 import os, sys, re, time
 import csv
+import numpy as np
 from jinja2 import Environment, FileSystemLoader
 
 leaf_bw = 100
 spine_bw = 400
-background_flow_size = 200
+background_flow_size = 100
 burst_flow_size = 50
 # 200 50
 # 20 5
@@ -133,7 +134,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_retrans = [], []
     burst_fcts, burst_retrans = [], []
-    for i in range(25):
+    for i in range(15):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -143,21 +144,23 @@ def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
 
     bg_fcts_avg = sum(bg_fcts)/len(bg_fcts)
     bg_retrans_avg = sum(bg_retrans)/len(bg_retrans)
+    bg_retrans_p95 = np.percentile(bg_retrans, 95)
 
     burst_fcts_avg = sum(burst_fcts)/len(burst_fcts)
     burst_retrans_avg = sum(burst_retrans)/len(burst_retrans)
+    burst_retrans_p95 = np.percentile(burst_retrans, 95)
 
     print('\033[96m' + "=== round end (bg:%f Mbps, %d MBytes) (burst:%f Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size) + '\033[0m')
-    print("background", bg_fcts_avg, bg_retrans_avg)
-    print("burst", burst_fcts_avg, burst_retrans_avg)
-    bg_res_tuple = (bg_fcts_avg, bg_retrans_avg)
-    burst_res_tuple = (burst_fcts_avg, burst_retrans_avg)
+    print("background", bg_fcts_avg, bg_retrans_avg, bg_retrans_p95)
+    print("burst", burst_fcts_avg, burst_retrans_avg, burst_retrans_p95)
+    bg_res_tuple = (bg_fcts_avg, bg_retrans_avg, bg_retrans_p95)
+    burst_res_tuple = (burst_fcts_avg, burst_retrans_avg, burst_retrans_p95)
     return bg_res_tuple, burst_res_tuple
 
 def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_size = 5):
     agg_road_list = []
-    bg_fcts_list, bg_retrans_list = [], []
-    burst_fcts_list, burst_retrans_list = [], []
+    bg_fcts_list, bg_retrans_avg_list, bg_retrans_p95_list = [], [], []
+    burst_fcts_list, burst_retrans_avg_list, burst_retrans_p95_list = [], [], []
     if bg_load == 25: 
         agg_road_list = [35, 45, 55, 65, 75, 85, 95]
     elif bg_load == 50:
@@ -173,29 +176,31 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
                                                     bg_size = bg_size,
                                                     burst_size = burst_size)
         bg_fcts_list.append(bg_test_res[0])
-        bg_retrans_list.append(bg_test_res[1])
+        bg_retrans_avg_list.append(bg_test_res[1])
+        bg_retrans_p95_list.append(bg_test_res[2])
 
         burst_fcts_list.append(burst_test_res[0])
-        burst_retrans_list.append(burst_test_res[1])
+        burst_retrans_avg_list.append(burst_test_res[1])
+        burst_retrans_p95_list.append(burst_test_res[2])
 
         idx += 1
     
     fa_dir = fa_dir_pre + str(deflect_mode)
     if not os.path.exists(fa_dir):
         os.makedirs(fa_dir)
-    bg_rows = zip(agg_road_list, bg_fcts_list, bg_retrans_list)
+    bg_rows = zip(agg_road_list, bg_fcts_list, bg_retrans_avg_list, bg_retrans_p95_list)
     bg_log_filename = fa_dir + '/tcp_result_bg%d_bg_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
-    burst_rows = zip(agg_road_list, burst_fcts_list, burst_retrans_list)
+    burst_rows = zip(agg_road_list, burst_fcts_list, burst_retrans_avg_list, burst_retrans_p95_list)
     burst_log_filename = fa_dir + '/tcp_result_bg%d_burst_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
 
     with open(bg_log_filename, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean number of packet retransmission'])
+        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean number of packet retransmission', 'P95 number of packet retransmission'])
         writer.writerows(bg_rows)
     
     with open(burst_log_filename, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean number of packet retransmission'])
+        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean number of packet retransmission', 'P95 number of packet retransmission'])
         writer.writerows(burst_rows)
 
 total_start_time = time.time()

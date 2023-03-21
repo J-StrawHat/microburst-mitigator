@@ -4,6 +4,7 @@ from p4utils.mininetlib.network_API import NetworkAPI
 import subprocess
 import os, sys, re, time
 import csv
+import numpy as np
 from jinja2 import Environment, FileSystemLoader
 
 leaf_bw = 100
@@ -151,23 +152,25 @@ def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_jitters_avg = sum(bg_jitters)/len(bg_jitters)
     bg_bandwidth_avg = sum(bg_bandwidth)/len(bg_bandwidth)
     bg_lost_avg = sum(bg_loss)/len(bg_loss)
+    bg_lost_p95 = np.percentile(bg_loss, 95)
 
     burst_fcts_avg = sum(burst_fcts)/len(burst_fcts)
     burst_jitters_avg = sum(burst_jitters)/len(burst_jitters)
     burst_bandwidth_avg = sum(burst_bandwidth)/len(burst_bandwidth)
     burst_lost_avg = sum(burst_loss)/len(burst_loss)
+    burst_lost_p95 = np.percentile(burst_lost_p95, 95)
 
     print('\033[96m' + "=== round end (bg:%f Mbps, %d MBytes) (burst:%f Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size) + '\033[0m')
-    print("background", bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg)
-    print("burst", burst_fcts_avg, burst_jitters_avg, burst_bandwidth_avg, burst_lost_avg)
-    bg_res_tuple = (bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg)
-    burst_res_tuple = (burst_fcts_avg, burst_jitters_avg, burst_bandwidth_avg, burst_lost_avg)
+    print("background", bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg, bg_lost_p95)
+    print("burst", burst_fcts_avg, burst_jitters_avg, burst_bandwidth_avg, burst_lost_avg, burst_lost_p95)
+    bg_res_tuple = (bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg, bg_lost_p95)
+    burst_res_tuple = (burst_fcts_avg, burst_jitters_avg, burst_bandwidth_avg, burst_lost_avg, burst_lost_p95)
     return bg_res_tuple, burst_res_tuple
 
 def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_size = 5):
     agg_road_list = []
-    bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_list = [], [], [], []
-    burst_fcts_list, burst_jitters_list, burst_bandwidth_list, burst_lost_list = [], [], [], []
+    bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_avg_list, bg_lost_p95_list = [], [], [], [], []
+    burst_fcts_list, burst_jitters_list, burst_bandwidth_list, burst_lost_avg_list, burst_lost_p95_list = [], [], [], [], []
     if bg_load == 25: 
         agg_road_list = [35, 45, 55, 65, 75, 85, 95]
     elif bg_load == 50:
@@ -185,12 +188,14 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
         bg_fcts_list.append(bg_test_res[0])
         bg_jitters_list.append(bg_test_res[1])
         bg_bandwidth_list.append(bg_test_res[2])
-        bg_lost_list.append(bg_test_res[3])
+        bg_lost_avg_list.append(bg_test_res[3])
+        bg_lost_p95_list.append(bg_test_res[4])
 
         burst_fcts_list.append(burst_test_res[0])
         burst_jitters_list.append(burst_test_res[1])
         burst_bandwidth_list.append(burst_test_res[2])
-        burst_lost_list.append(burst_test_res[3])
+        burst_lost_avg_list.append(burst_test_res[3])
+        burst_lost_p95_list.append(burst_test_res[4])
 
         idx += 1
 
@@ -198,19 +203,19 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
     if not os.path.exists(fa_dir):
         os.makedirs(fa_dir)
 
-    bg_rows = zip(agg_road_list, bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_list)
+    bg_rows = zip(agg_road_list, bg_fcts_list, bg_jitters_list, bg_bandwidth_list, bg_lost_avg_list, bg_lost_p95_list)
     bg_log_filename = fa_dir + '/result_bg%d_bg_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
-    burst_rows = zip(agg_road_list, burst_fcts_list, burst_jitters_list, burst_bandwidth_list, burst_lost_list)
+    burst_rows = zip(agg_road_list, burst_fcts_list, burst_jitters_list, burst_bandwidth_list, burst_lost_avg_list, burst_lost_p95_list)
     burst_log_filename = fa_dir + '/result_bg%d_burst_bgn%d_burstn%d.csv' % (bg_load, bg_size, burst_size)
 
     with open(bg_log_filename, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean Jitter (ms)', 'Mean Bandwidth (Mbps)', 'Mean Packet Lost (%)'])
+        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean Jitter (ms)', 'Mean Bandwidth (Mbps)', 'Mean Packet Lost (%)', 'P95 Packet Lost (%)'])
         writer.writerows(bg_rows)
     
     with open(burst_log_filename, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean Jitter (ms)', 'Mean Bandwidth (Mbps)', 'Mean Packet Lost (%)'])
+        writer.writerow(['Aggregated Network Load (%)', 'Mean FCT (s)', 'Mean Jitter (ms)', 'Mean Bandwidth (Mbps)', 'Mean Packet Lost (%)', 'P95 Packet Lost (%)'])
         writer.writerows(burst_rows)
 
 total_start_time = time.time()
