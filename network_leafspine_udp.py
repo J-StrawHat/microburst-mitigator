@@ -158,7 +158,7 @@ def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     burst_jitters_avg = sum(burst_jitters)/len(burst_jitters)
     burst_bandwidth_avg = sum(burst_bandwidth)/len(burst_bandwidth)
     burst_lost_avg = sum(burst_loss)/len(burst_loss)
-    burst_lost_p95 = np.percentile(burst_lost_p95, 95)
+    burst_lost_p95 = np.percentile(burst_loss, 95)
 
     print('\033[96m' + "=== round end (bg:%f Mbps, %d MBytes) (burst:%f Mbps, %d MBytes) ===" % (bg_bw, bg_size, burst_bw, burst_size) + '\033[0m')
     print("background", bg_fcts_avg, bg_jitters_avg, bg_bandwidth_avg, bg_lost_avg, bg_lost_p95)
