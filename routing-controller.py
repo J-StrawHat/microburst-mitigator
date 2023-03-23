@@ -33,6 +33,7 @@ class RoutingController(object):
         for controller in self.controllers.values():    #遍历所有的API操作对象，设置其默认的Action
             controller.table_set_default("ipv4_lpm", "drop", [])
             #controller.table_set_default("ecmp_group_to_nhop", "drop", [])
+            controller.mirroring_add(100, 2)
 
     def set_register_defaults(self):
         for sw_name, controller in self.controllers.items():

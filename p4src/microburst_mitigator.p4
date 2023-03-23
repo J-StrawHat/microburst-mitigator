@@ -5,7 +5,6 @@
 //My includes
 #include "include/headers.p4"
 #include "include/parsers.p4"
-#define SHOW_FLOWINFO false
 
 /** Checksum的验证阶段(每收到一个包均需验证checksum，以确保该包是完整的没被修改过的) **/
 control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
@@ -242,8 +241,11 @@ control MyIngress(inout headers hdr,
                         }
                         standard_metadata.egress_spec = min_deq_dqdepth_idx;
                     }
+                } 
+                if (SHOW_FLOWINFO && meta.egress_type == TYPE_EGRESS_HOST){
+                    clone(CloneType.I2E, 100);
                 }
-
+                
             }
             else {
                 
@@ -292,12 +294,15 @@ control MyEgress(inout headers hdr,
             //hdr.flowinfo.deflect_idx = hdr.flowinfo.deflect_idx + 1;        //【TODO】迭代交换机序号
             hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;         //更新出队列深度
 
-            if (!SHOW_FLOWINFO && meta.egress_type == TYPE_EGRESS_HOST){    //如果下一跳是主机，说明将要结束
+            if (standard_metadata.instance_type == 0 && meta.egress_type == TYPE_EGRESS_HOST ){    //如果下一跳是主机，说明将要结束
                 hdr.ipv4.ihl = hdr.ipv4.ihl - 5;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
                 hdr.ipv4.totalLen = hdr.ipv4.totalLen - 20;     //256 bits = 32 bytes
                 hdr.ipv4_option.setInvalid();
                 hdr.flowinfo.setInvalid();
             }
+            else {
+                //对于克隆的数据包，不需要剔除flowinfo首部
+            }            
         }
     }
 }

@@ -87,6 +87,7 @@ def init_topology(network_api):
     # Nodes general options
     network_api.disablePcapDumpAll()
     network_api.disableLogAll()
+    #network_api.enableLogAll()
     network_api.disableCli()
     #network_api.enableCli()
 
