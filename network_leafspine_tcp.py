@@ -135,7 +135,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_retrans = [], []
     burst_fcts, burst_retrans = [], []
-    for i in range(15):
+    for i in range(10):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -167,7 +167,7 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
     elif bg_load == 50:
         agg_road_list = [55, 65, 75, 85, 95]
     elif bg_load == 75:
-        agg_road_list = [80, 85, 90, 95]
+        agg_road_list = [80, 85, 90, 95] # 16组数据
     idx = 1
     for cur_agg_road in agg_road_list:
         print('\033[96m' + "=== [%d] round begin (bg:%f Mbps, %d MBytes) (burst:%f Mbps, %d MBytes) ===" % (idx, 0.01 * bg_load * leaf_bw, bg_size, 0.01 * (cur_agg_road - bg_load) * leaf_bw, burst_size) + '\033[0m')
@@ -209,7 +209,7 @@ for i in [0, 1, 2, 3]:
     env = Environment(loader=FileSystemLoader('p4src/include'))
     template = env.get_template('constants.p4template')
 
-    output = template.render(deflect_mode=i, threshold = 25)
+    output = template.render(deflect_mode=i, threshold = 15)
     #print(output)
 
     # 将渲染后的代码写入文件中

@@ -21,4 +21,4 @@ const bit<4>  TYPE_EGRESS_SWITCH = 2;
 //默认值：25
 #define PORT_NUM 8
 #define FLOW_NUM 1024
-#define SHOW_FLOWINFO true
+#define SHOW_FLOWINFO false

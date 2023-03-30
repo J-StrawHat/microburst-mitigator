@@ -4,8 +4,8 @@ const bit<8>  TYPE_TCP  = 6;
 const bit<8>  TYPE_UDP  = 17;
 
 
-const bit<4>  TYPE_EGRESS_HOST = 1;
-const bit<4>  TYPE_EGRESS_SWITCH = 2;
+const bit<4>  TYPE_EGRESS_HOST = 0;
+const bit<4>  TYPE_EGRESS_SWITCH = 1;
 
 #define PKT_INSTANCE_TYPE_NORMAL 0
 #define PKT_INSTANCE_TYPE_INGRESS_CLONE 1
@@ -21,4 +21,4 @@ const bit<4>  TYPE_EGRESS_SWITCH = 2;
 //默认值：25
 #define PORT_NUM 8
 #define FLOW_NUM 1024
-#define SHOW_FLOWINFO true
+#define SHOW_FLOWINFO false
