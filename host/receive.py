@@ -26,13 +26,7 @@ def handle_pkt(pkt):
         if TCP in pkt:
             sport, dport, flags = pkt[TCP].sport, pkt[TCP].dport, pkt[TCP].flags
             print("%sth Packet Received: (%s:%s -> %s:%s) - %s " % (pkt_cnt, ip_src, sport, ip_dst, dport, flags))
-            if flags == 'F': # 如果是流的最后一个数据包
-                flow_time = pkt.time
-                print("[!] Flow from %s:%d to %s:%d completed in %f seconds" % (ip_src, sport, ip_dst, dport, flow_time))
-            if flags == 0x01:
-                print(time.time())
-                pkt[TCP].show()
-
+            pkt.show()
         #print_flowinfo(pkt)
         
 

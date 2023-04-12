@@ -4,8 +4,8 @@ const bit<8>  TYPE_TCP  = 6;
 const bit<8>  TYPE_UDP  = 17;
 
 
-const bit<4>  TYPE_EGRESS_HOST = 0;
-const bit<4>  TYPE_EGRESS_SWITCH = 1;
+const bit<1>  TYPE_EGRESS_HOST = 0;
+const bit<1>  TYPE_EGRESS_SWITCH = 1;
 
 #define PKT_INSTANCE_TYPE_NORMAL 0
 #define PKT_INSTANCE_TYPE_INGRESS_CLONE 1
@@ -15,10 +15,10 @@ const bit<4>  TYPE_EGRESS_SWITCH = 1;
 #define PKT_INSTANCE_TYPE_REPLICATION 5
 #define PKT_INSTANCE_TYPE_RESUBMIT 6
 
-#define DEFLECTION_MODE 0
+#define DEFLECTION_MODE 3
 //0:不偏转; 1:随机偏转; 2:随机选2个取局部最小值; 3:遍历取全局最小值
-#define THRESHOLD 7
+#define THRESHOLD 15
 //默认值：25
 #define PORT_NUM 8
 #define FLOW_NUM 1024
-#define SHOW_FLOWINFO false
+#define SHOW_FLOWINFO true

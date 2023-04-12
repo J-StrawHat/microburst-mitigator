@@ -22,8 +22,8 @@ def get_if():
     return iface
 
 def main():
-    if len(sys.argv)<3:
-        print('pass 2 arguments: <destination> <pps> <loop>"')
+    if len(sys.argv)<2:
+        print('pass 2 arguments: <destination> <numbers>')
         exit(1)
 
     addr = socket.gethostbyname(sys.argv[1])

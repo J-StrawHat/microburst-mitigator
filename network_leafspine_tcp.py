@@ -9,7 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 
 leaf_bw = 100
 spine_bw = 400
-background_flow_size = 100
+background_flow_size = 200
 burst_flow_size = 50
 # 200 50
 # 20 5
@@ -135,7 +135,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_retrans = [], []
     burst_fcts, burst_retrans = [], []
-    for i in range(10):
+    for i in range(50):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -231,7 +231,7 @@ for i in [0, 1, 2, 3]:
 
     run_measurement(net, deflect_mode = i, bg_size=background_flow_size, burst_size=burst_flow_size)
 
-    run_measurement(net, deflect_mode = i, bg_load=50, bg_size=background_flow_size, burst_size=burst_flow_size)
+    #run_measurement(net, deflect_mode = i, bg_load=50, bg_size=background_flow_size, burst_size=burst_flow_size)
 
     #run_iperf(net, bg_bw=75, bg_size=100, burst_bw=5, burst_size=50)
     run_measurement(net, deflect_mode = i, bg_load=75, bg_size=background_flow_size, burst_size=burst_flow_size)

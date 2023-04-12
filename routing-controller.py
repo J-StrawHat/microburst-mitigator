@@ -38,7 +38,7 @@ class RoutingController(object):
     def set_register_defaults(self):
         for sw_name, controller in self.controllers.items():
             port_nums = len(self.topo.get_interfaces_to_node(sw_name))
-            controller.register_write("port_num_recorder", [0, 1], port_nums)
+            controller.register_write("port_num_recorder", 0, port_nums)
             controller.register_write("qdepth_table", [0, port_nums + 1], 0)
 
     def set_egress_type_table(self):
@@ -50,11 +50,12 @@ class RoutingController(object):
                 port_number = self.topo.interface_to_port(sw_name, intf) # 获取本交换机指定接口的端口号
 
                 if self.topo.isHost(node):          # 如果邻节点是主机
-                    node_type_num = 1
+                    node_type_num = 0
                 elif self.topo.isP4Switch(node):    # 如果邻节点是P4交换机
-                    node_type_num = 2
+                    node_type_num = 1
 
                 print("table_add at {}:".format(sw_name))
+                self.controllers[sw_name].register_write("port_type_recorder", port_number, node_type_num)
                 self.controllers[sw_name].table_add("egress_type", "set_egress_type", [str(port_number)], [str(node_type_num)])
 
 

@@ -134,7 +134,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_retrans = [], []
     burst_fcts, burst_retrans = [], []
-    for i in range(30):
+    for i in range(50):
         print("=========== round %d [bg:%f Mbps, burst:%f Mbps] ===========" % (i + 1, bg_bw, burst_bw))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -158,7 +158,8 @@ def run_iperf_loop(net, bg_bw, burst_bw, bg_size, burst_size):
     return bg_res_tuple, burst_res_tuple
 
 def run_measurement(net, deflect_mode = 0, threshold = 25, bg_size = 20, burst_size = 5):
-    bg_load_list = [25, 50, 75]
+    #bg_load_list = [25, 50, 75]
+    bg_load_list = [25]
     bg_fcts_list, bg_retrans_avg_list, bg_retrans_p95_list = [], [], []
     burst_fcts_list, burst_retrans_avg_list, burst_retrans_p95_list = [], [], []
 
@@ -198,7 +199,7 @@ def run_measurement(net, deflect_mode = 0, threshold = 25, bg_size = 20, burst_s
 
 
 total_start_time = time.time()
-for t in range(4, 64, 4):
+for t in range(0, 64, 4):
     env = Environment(loader=FileSystemLoader('p4src/include'))
     template = env.get_template('constants.p4template')
 
@@ -229,5 +230,38 @@ for t in range(4, 64, 4):
     print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
     network_api.stopNetwork()
     print("Runtime：", end_time - start_time, "s")
+
+for t in range(0, 64, 4):
+    env = Environment(loader=FileSystemLoader('p4src/include'))
+    template = env.get_template('constants.p4template')
+
+    output = template.render(deflect_mode=3, threshold = t)
+    #print(output)
+
+    # 将渲染后的代码写入文件中
+    with open('p4src/include/constants.p4', 'w') as f:
+        f.write(output)
+
+    network_api = NetworkAPI()
+    init_topology(network_api)
+
+    network_api.startNetwork()
+    print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
+    net = network_api.net
+
+    h1, h2, h3, h4, h5 = net.getNodeByName('h1', 'h2', 'h3', 'h4', 'h5')
+
+    print(h1.cmd("ping -c5 {}".format(h2.IP())))
+
+    start_time = time.time()
+
+    run_measurement(net, deflect_mode = 3, threshold = t, bg_size=background_flow_size, burst_size=burst_flow_size)
+
+    end_time = time.time()
+
+    print('\033[92m' + '&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&' + '\033[0m')
+    network_api.stopNetwork()
+    print("Runtime：", end_time - start_time, "s")
+
 total_end_time = time.time()
 print('\033[92m' + 'Runtimes:%f'%(total_end_time - total_start_time) + '\033[0m')

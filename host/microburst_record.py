@@ -7,7 +7,7 @@ from scapy.all import sniff, get_if_list, get_if_hwaddr
 from scapy.all import Ether, IP, UDP, TCP, Raw, ls
 
 curdate = time.strftime("%m%d-%H-%M", time.localtime())
-fa_dir = 'host/log'
+fa_dir = 'log'
 output_file = fa_dir + '/%s.csv' % curdate
 
 def get_if():

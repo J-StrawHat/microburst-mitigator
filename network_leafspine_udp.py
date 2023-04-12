@@ -225,7 +225,7 @@ for i in [0, 1, 2, 3]:
     env = Environment(loader=FileSystemLoader('p4src/include'))
     template = env.get_template('constants.p4template')
 
-    output = template.render(deflect_mode=i, threshold = 7)
+    output = template.render(deflect_mode=i, threshold = 25)
     #print(output)
 
     # 将渲染后的代码写入文件中
