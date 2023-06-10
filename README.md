@@ -14,7 +14,7 @@ ssh -Y zwx@10.211.55.4
 sudo p4run --config p4app-leafspine.json
 ```
 
-自动化测试：
+自动化测试脚本：
 
 - 模拟TCP
 
