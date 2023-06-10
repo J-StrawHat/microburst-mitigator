@@ -7,6 +7,7 @@ import csv
 import numpy as np
 from jinja2 import Environment, FileSystemLoader
 
+loop_cnt = 10
 leaf_bw = 100
 spine_bw = 400
 background_flow_size = 200
@@ -135,7 +136,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_retrans = [], []
     burst_fcts, burst_retrans = [], []
-    for i in range(50):
+    for i in range(loop_cnt):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])
@@ -205,11 +206,12 @@ def run_measurement(net, deflect_mode = 0, bg_load = 25, bg_size = 20, burst_siz
         writer.writerows(burst_rows)
 
 total_start_time = time.time()
+#for i in [0, 1, 2, 3]:
 for i in [0, 1, 2, 3]:
     env = Environment(loader=FileSystemLoader('p4src/include'))
     template = env.get_template('constants.p4template')
 
-    output = template.render(deflect_mode=i, threshold = 15)
+    output = template.render(deflect_mode=i, threshold = 10)
     #print(output)
 
     # 将渲染后的代码写入文件中
@@ -229,7 +231,7 @@ for i in [0, 1, 2, 3]:
 
     start_time = time.time()
 
-    run_measurement(net, deflect_mode = i, bg_size=background_flow_size, burst_size=burst_flow_size)
+    #run_measurement(net, deflect_mode = i, bg_size=background_flow_size, burst_size=burst_flow_size)
 
     #run_measurement(net, deflect_mode = i, bg_load=50, bg_size=background_flow_size, burst_size=burst_flow_size)
 

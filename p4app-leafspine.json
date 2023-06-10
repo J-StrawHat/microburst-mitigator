@@ -1,7 +1,7 @@
 {
   "p4_src": "p4src/microburst_mitigator.p4",
   "cli": true,
-  "pcap_dump": true,
+  "pcap_dump": false,
   "enable_log": false,
   "exec_scripts": [
     {

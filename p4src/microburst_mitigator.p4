@@ -29,8 +29,8 @@ control MyIngress(inout headers hdr,
     bit<19>                     min_deq_qdepth;
     bit<9>                      min_deq_dqdepth_idx;
     bit<2>                      cur_status = 0;
-    bit<32>                     cur_deflect_idx;
-    bit<32>                     cur_reorder_idx;
+    bit<32>                     cur_deflect_idx = 0;
+    bit<32>                     cur_reorder_idx = 0;
     bit<1>                      deflect_flag = 0;
 
     action drop() {
@@ -131,7 +131,7 @@ control MyIngress(inout headers hdr,
                 //确定当前的转换状态
                 if(cur_deflect_idx == 0 && cur_reorder_idx == 0){
                     cur_status = 0;
-                    if (cur_deq_qdepth > THRESHOLD && DEFLECTION_MODE != 0){
+                    if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_RECIRC && DEFLECTION_MODE != 0){
                         cur_status = 1;         //深度超出阈值，需要进行偏转
                     }
                     else {
@@ -139,9 +139,8 @@ control MyIngress(inout headers hdr,
                     }
                 }
                 else if(cur_deflect_idx != 0 && cur_reorder_idx == 0){
-                    if (cur_deq_qdepth <= THRESHOLD){
+                    if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_RECIRC){
                         cur_status = 2;         //深度变浅了，准备停止偏转
-                        cur_reorder_idx = 1;    //初始化「待恢复」的偏转ID(0→1)
                     }
                     else {
                         cur_status = 1;
@@ -151,46 +150,59 @@ control MyIngress(inout headers hdr,
                     cur_status = 2;
                 }
             
-                if(cur_status == 1){    
-                    if(hdr.flowinfo.deflect_idx == 0){
-                        //如果当前数据包未被分配过偏转ID，则更新偏转ID
-                        cur_deflect_idx = cur_deflect_idx + 1;
-                        //更新记录表上的最新偏转ID
-                        deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
-                        //需要更新包所携带的偏转ID
+                if(cur_status == 1){
+                    if(standard_metadata.instance_type == PKT_INSTANCE_TYPE_RECIRC){
+                        //流状态已经切换到「偏转」，当前的预警包需要在ingress结尾丢弃
+                        //此时 deflect_idx = 0
+                        drop();
+                    }
+                    else if (hdr.flowinfo.deflect_idx == 0){
+                        //如果当前数据包未被分配过偏转ID，则需要从寄存器中分配一个偏转ID给当前数据包
                         hdr.flowinfo.deflect_idx = cur_deflect_idx;
                     }
+                    cur_deflect_idx = cur_deflect_idx + 1;
+                    //更新记录表上的最新偏转ID
+                    deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
                 }
                 else if (cur_status == 2){
-                    if (cur_reorder_idx == hdr.flowinfo.deflect_idx){
-                        //包所携带的偏转ID和待恢复的ID匹配（说明符合流的包次序）
-                        //更新「下一个」待恢复的偏转ID
+                    if(standard_metadata.instance_type == PKT_INSTANCE_TYPE_RECIRC){
+                        //此时 reorder_idx = 0
+                        drop();
+                        //更新「下一个」待恢复（待匹配）的偏转ID
                         cur_reorder_idx = cur_reorder_idx + 1;
+                        reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_reorder_idx);
+                    }
+                    else if(cur_reorder_idx != hdr.flowinfo.deflect_idx){
+                        //两偏转ID不匹配，需要将包进行偏转
+                        deflect_flag = 1;
+                        if(hdr.flowinfo.deflect_idx == 0){
+                            //如果当前数据包未被分配过偏转ID，则从寄存器中分配一个偏转ID：
+                            hdr.flowinfo.deflect_idx = cur_deflect_idx;
+                            //更新记录表上的最新偏转ID
+                            cur_deflect_idx = cur_deflect_idx + 1;
+                            deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);               
+                        }
+                    }
+                    else { //包所携带的偏转ID和待恢复的ID匹配（说明符合流的包次序）
                         deflect_flag = 0; //当前的数据包不需偏转
-                        if(cur_deflect_idx + 1 == cur_reorder_idx){ //说明全部偏转的数据包已恢复原次序
+
+                        //更新「下一个」待恢复的偏转ID
+                        cur_reorder_idx = cur_reorder_idx + 1;                        
+                        if(cur_deflect_idx == cur_reorder_idx){ //待分配的偏转ID，和待恢复(匹配)的偏转ID相等
+                            //说明偏转的数据包已全部被恢复到原次序
                             deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, 0);
                             reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, 0);
                             cur_status = 0; //转换状态
                             hdr.flowinfo.deflect_idx = 0; //匹配即可去掉deflect_id
                         }
-                        else{
-                            reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
+                        else {
+                            reorder_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_reorder_idx);
                         }
-                    }
-                    else { //两偏转ID不匹配，需要将包进行偏转
-                        deflect_flag = 1;
-                        if(hdr.flowinfo.deflect_idx == 0){
-                            //如果当前数据包未被分配过偏转ID，则：
-                            cur_deflect_idx = cur_deflect_idx + 1;
-                            //更新记录表上的最新偏转ID
-                            deflect_idx_table.write((bit<32>)hdr.flowinfo.flow_id, cur_deflect_idx);
-                            //需要更新包所携带的偏转ID
-                            hdr.flowinfo.deflect_idx = cur_deflect_idx;
-                        }
+
                     }
                 }
 
-                if(cur_status == 1 || cur_status == 2 && deflect_flag == 1){     //即将出的端口，比较拥塞
+                if(cur_status == 1 || deflect_flag == 1){     //即将出的端口，比较拥塞
                     if (DEFLECTION_MODE == 1){      //Random Deflection
 
                         get_random_port_with_type();
@@ -206,10 +218,8 @@ control MyIngress(inout headers hdr,
 
                         standard_metadata.egress_spec = meta.tmp_port;
                     }
-                    else if(DEFLECTION_MODE == 2){  //Selective Deflection
-                        min_deq_qdepth = cur_deq_qdepth;
-                        min_deq_dqdepth_idx = standard_metadata.egress_spec;
-
+                    else if(DEFLECTION_MODE == 2){  //Selective Deflection                      
+                        //随机选出一个端口 a
                         get_random_port_with_type();
                         if(meta.port_type != TYPE_EGRESS_SWITCH){
                             get_random_port_with_type();
@@ -220,48 +230,57 @@ control MyIngress(inout headers hdr,
                         if(meta.port_type != TYPE_EGRESS_SWITCH){
                             get_random_port_with_type();
                         }
-
+                        if(meta.port_type != TYPE_EGRESS_SWITCH){
+                            get_random_port_with_type();
+                        }
+                        qdepth_table.read(min_deq_qdepth, (bit<32>)meta.tmp_port);
+                        min_deq_dqdepth_idx = meta.tmp_port;
+                        
+                        //随机选出一个端口 b
+                        get_random_port_with_type();
+                        if(meta.port_type != TYPE_EGRESS_SWITCH){
+                            get_random_port_with_type();
+                        }
+                        if(meta.port_type != TYPE_EGRESS_SWITCH){
+                            get_random_port_with_type();
+                        }
+                        if(meta.port_type != TYPE_EGRESS_SWITCH){
+                            get_random_port_with_type();
+                        }
+                        if(meta.port_type != TYPE_EGRESS_SWITCH){
+                            get_random_port_with_type();
+                        }
                         qdepth_table.read(cur_deq_qdepth, (bit<32>)meta.tmp_port);
                         if(min_deq_qdepth > cur_deq_qdepth){
                             min_deq_qdepth = cur_deq_qdepth;
                             min_deq_dqdepth_idx = meta.tmp_port;
+                        }
+
+                        //查询上一个决策所使用的端口 c
+                        last_port_table.read(meta.tmp_port, (bit<32>)standard_metadata.egress_spec);
+                        if(meta.tmp_port != 0){ //如果历史端口为0，说明从未做出决策
+                            qdepth_table.read(cur_deq_qdepth, (bit<32>)meta.tmp_port);
+                            if(min_deq_qdepth > cur_deq_qdepth){
+                                min_deq_qdepth = cur_deq_qdepth;
+                                min_deq_dqdepth_idx = meta.tmp_port;
+                            }
                         }
                         
-                        get_random_port_with_type();
-                        if(meta.port_type != TYPE_EGRESS_SWITCH){
-                            get_random_port_with_type();
-                        }
-                        if(meta.port_type != TYPE_EGRESS_SWITCH){
-                            get_random_port_with_type();
-                        }
-                        if(meta.port_type != TYPE_EGRESS_SWITCH){
-                            get_random_port_with_type();
-                        }
-
-                        qdepth_table.read(cur_deq_qdepth, (bit<32>)meta.tmp_port);
-                        if(min_deq_qdepth > cur_deq_qdepth){
-                            min_deq_qdepth = cur_deq_qdepth;
-                            min_deq_dqdepth_idx = meta.tmp_port;
-                        }
-                        last_port_table.read(meta.tmp_port, (bit<32>)standard_metadata.egress_spec);
-                        qdepth_table.read(cur_deq_qdepth, (bit<32>)meta.tmp_port);
-                        if(min_deq_qdepth > cur_deq_qdepth){
-                            min_deq_qdepth = cur_deq_qdepth;
-                            min_deq_dqdepth_idx = meta.tmp_port;
-                        }
+                        //更新历史端口相关信息
                         last_port_table.write((bit<32>)standard_metadata.egress_spec, min_deq_dqdepth_idx);
                         standard_metadata.egress_spec = min_deq_dqdepth_idx;
                     }
                     else if(DEFLECTION_MODE == 3){ // 假定有8个端口
-                        min_deq_qdepth = cur_deq_qdepth;
-                        min_deq_dqdepth_idx = standard_metadata.egress_spec;
-                        qdepth_table.read(cur_deq_qdepth, 1);
+                        min_deq_qdepth = 524287;
+                        min_deq_dqdepth_idx = 0;
+                        //检查端口1
+                        qdepth_table.read(cur_deq_qdepth, 1); 
                         port_type_recorder.read(meta.port_type, 1);
                         if(min_deq_qdepth > cur_deq_qdepth && meta.port_type == TYPE_EGRESS_SWITCH){
                             min_deq_qdepth = cur_deq_qdepth;
                             min_deq_dqdepth_idx = 1;
                         }
-                        if(meta.port_nums > 2){
+                        if(meta.port_nums > 2){ //检查端口2
                             qdepth_table.read(cur_deq_qdepth, 2);
                             port_type_recorder.read(meta.port_type, 2);
                             if(min_deq_qdepth > cur_deq_qdepth && meta.port_type == TYPE_EGRESS_SWITCH){
@@ -269,7 +288,7 @@ control MyIngress(inout headers hdr,
                                 min_deq_dqdepth_idx = 2;
                             }
                         }
-                        if(meta.port_nums > 3){
+                        if(meta.port_nums > 3){ //检查端口3
                             qdepth_table.read(cur_deq_qdepth, 3);
                             port_type_recorder.read(meta.port_type, 3);
                             if(min_deq_qdepth > cur_deq_qdepth && meta.port_type == TYPE_EGRESS_SWITCH){
@@ -277,7 +296,7 @@ control MyIngress(inout headers hdr,
                                 min_deq_dqdepth_idx = 3;
                             }
                         }
-                        if(meta.port_nums > 4){
+                        if(meta.port_nums > 4){ //检查端口4
                             qdepth_table.read(cur_deq_qdepth, 4);
                             port_type_recorder.read(meta.port_type, 4);
                             if(min_deq_qdepth > cur_deq_qdepth && meta.port_type == TYPE_EGRESS_SWITCH){
@@ -285,7 +304,7 @@ control MyIngress(inout headers hdr,
                                 min_deq_dqdepth_idx = 4;
                             }
                         }
-                        if(meta.port_nums > 5){
+                        if(meta.port_nums > 5){ //检查端口5
                             qdepth_table.read(cur_deq_qdepth, 5);
                             port_type_recorder.read(meta.port_type, 5);
                             if(min_deq_qdepth > cur_deq_qdepth && meta.port_type == TYPE_EGRESS_SWITCH){
@@ -293,7 +312,7 @@ control MyIngress(inout headers hdr,
                                 min_deq_dqdepth_idx = 5;
                             }
                         }
-                        if(meta.port_nums > 6){
+                        if(meta.port_nums > 6){ //检查端口6
                             qdepth_table.read(cur_deq_qdepth, 6);
                             port_type_recorder.read(meta.port_type, 6);
                             if(min_deq_qdepth > cur_deq_qdepth && meta.port_type == TYPE_EGRESS_SWITCH){
@@ -301,7 +320,7 @@ control MyIngress(inout headers hdr,
                                 min_deq_dqdepth_idx = 6;
                             }
                         }
-                        if(meta.port_nums > 7){
+                        if(meta.port_nums > 7){ //检查端口7
                             qdepth_table.read(cur_deq_qdepth, 7);
                             port_type_recorder.read(meta.port_type, 7);
                             if(min_deq_qdepth > cur_deq_qdepth && meta.port_type == TYPE_EGRESS_SWITCH){
@@ -316,7 +335,6 @@ control MyIngress(inout headers hdr,
                 if (SHOW_FLOWINFO && meta.port_type == TYPE_EGRESS_HOST){
                     clone(CloneType.I2E, 100);
                 }
-                
             }
             else {
                 port_type_recorder.read(meta.port_type, (bit<32>)standard_metadata.egress_spec);
@@ -351,6 +369,7 @@ control MyIngress(inout headers hdr,
                 }
             }
             
+            meta.cur_status = cur_status;
         }
     }
 }
@@ -358,22 +377,38 @@ control MyIngress(inout headers hdr,
 /** Egress处理 **/
 control MyEgress(inout headers hdr,
                  inout metadata meta,
-                 inout standard_metadata_t standard_metadata) {    
+                 inout standard_metadata_t standard_metadata) {  
+    action egress_drop() {
+        mark_to_drop(standard_metadata);
+    }
+  
     apply {
-        if (hdr.flowinfo.isValid()){
+        if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_EGRESS_CLONE){
+            meta.notice = 1;
+            recirculate_preserving_field_list((bit<8>)FieldLists.recir_fl);
+            egress_drop(); 
+        }
+        else if (hdr.flowinfo.isValid()){
             hdr.flowinfo.egress_ts = standard_metadata.egress_global_timestamp;
             //hdr.flowinfo.deflect_idx = hdr.flowinfo.deflect_idx + 1;        //【TODO】迭代交换机序号
             hdr.flowinfo.deq_qdepth = standard_metadata.deq_qdepth;         //更新出队列深度
 
-            if (standard_metadata.instance_type == 0 && meta.port_type == TYPE_EGRESS_HOST ){    //如果下一跳是主机，说明将要结束
+            if (standard_metadata.deq_qdepth > THRESHOLD && meta.cur_status == 0){ //当前状态本来是正常转发，但是出队列深度超出阈值
+                clone(CloneType.E2E, 100);
+            }
+            else if (standard_metadata.deq_qdepth <= THRESHOLD && meta.cur_status == 1){ //当前状态本来是转发，但是出队列深度超出阈值
+                clone(CloneType.E2E, 100);
+            }
+
+            if (standard_metadata.instance_type == PKT_INSTANCE_TYPE_NORMAL && meta.port_type == TYPE_EGRESS_HOST ){    //如果下一跳是主机，说明将要结束
                 hdr.ipv4.ihl = hdr.ipv4.ihl - 5;                //ipv4_option_t + flowinfo_t 的总长度为256bit（8个双字）
                 hdr.ipv4.totalLen = hdr.ipv4.totalLen - 20;     //256 bits = 32 bytes
                 hdr.ipv4_option.setInvalid();
                 hdr.flowinfo.setInvalid();
             }
-            else {
-                //对于克隆的数据包，不需要剔除flowinfo首部
-            }            
+            else if(standard_metadata.instance_type == PKT_INSTANCE_TYPE_INGRESS_CLONE){
+                //对于ingress克隆的数据包，不需要剔除flowinfo首部
+            }        
         }
     }
 }

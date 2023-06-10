@@ -7,6 +7,7 @@ import csv
 import numpy as np
 from jinja2 import Environment, FileSystemLoader
 
+loop_cnt = 25
 leaf_bw = 100
 spine_bw = 400
 background_flow_size = 20
@@ -138,7 +139,7 @@ def run_iperf(net, bg_bw, bg_size, burst_bw, burst_size):
 def run_iperf_loop(net, idx, bg_bw, burst_bw, bg_size, burst_size):
     bg_fcts, bg_jitters, bg_bandwidth, bg_loss = [], [], [], []
     burst_fcts, burst_jitters, burst_bandwidth, burst_loss = [], [], [], []
-    for i in range(10):
+    for i in range(loop_cnt):
         print("=========== [%d] round %d ===========" % (idx, i + 1))
         bg_res, burst_res = run_iperf(net, bg_bw = bg_bw, bg_size = bg_size, burst_bw = burst_bw, burst_size = burst_size)
         bg_fcts.append(bg_res["FCT(sec)"])

@@ -68,6 +68,10 @@ header udp_t{
     bit<16> checksum;
 }
 
+enum bit<8> FieldLists {
+    recir_fl = 8w0
+}
+
 struct metadata {
     bit<1>  port_type;
     bit<9>  tmp_port;
@@ -75,6 +79,12 @@ struct metadata {
     bit<9>  port_nums;
     bit<16> src_port;
     bit<16> dst_port;
+    bit<2>  cur_status;
+
+    @field_list(FieldLists.recir_fl)
+    bit<1>  notice;
+
+    bit<9>  tmp_cnt;
 }
 
 struct headers {
