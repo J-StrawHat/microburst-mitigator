@@ -14,10 +14,24 @@ ssh -Y zwx@10.211.55.4
 sudo p4run --config p4app-leafspine.json
 ```
 
+自动化测试：
+
+- 模拟TCP
+
+    ```bash
+    sudo python network_leafspine_tcp.py
+    ```
+
+- 模拟UDP
+
+    ```bash
+    sudo python network_leafspine_udp.py
+    ```
+
 BMv2 Mininet CLI:
 
 ```bash
-xterm h1 h3 h5
+xterm h1 h3 h3 h5
 ```
 第一个 H3:（Receiver）
 
